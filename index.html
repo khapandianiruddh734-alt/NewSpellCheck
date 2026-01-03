@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Excel Cleaner Tool</title>
-
+<title>Excel Menu Cleaner</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -13,9 +12,9 @@ body {
   padding: 20px;
 }
 .container {
-  max-width: 1200px;
+  max-width: 1300px;
   margin: auto;
-  background: #fff;
+  background: white;
   padding: 20px;
   border-radius: 10px;
 }
@@ -42,13 +41,9 @@ th, td {
   padding: 6px;
 }
 th { background: #f1f5f9; }
-.flex {
-  display: flex;
-  gap: 20px;
-}
-.half {
-  width: 50%;
-}
+.flex { display: flex; gap: 20px; }
+.half { width: 50%; }
+.highlight { background: #fff3cd; }
 .approval {
   background: #f9fafb;
   padding: 10px;
@@ -61,8 +56,7 @@ th { background: #f1f5f9; }
 <body>
 
 <div class="container">
-<h2>Excel Cleaner Tool</h2>
-<p>Upload Excel → Clean → Download</p>
+<h2>Upload Excel → Clean → Download</h2>
 
 <input type="file" accept=".xlsx,.csv" onchange="handleFile(event)">
 <br>
@@ -93,18 +87,20 @@ let originalData = [];
 let cleanedData = [];
 let headers = [];
 let suggestions = [];
+let highlightedIndexes = new Set();
 
 // FOOD DICTIONARY
 const foodDictionary = {
   "chiken": "chicken",
   "biriyani": "biryani",
-  "piza": "pizza",
+  "coffe": "coffee",
+  "frape": "frappe",
   "sandwitch": "sandwich",
   "nudels": "noodles",
-  "french frise": "french fries",
-  "paneer tikka masla": "paneer tikka masala"
+  "piza": "pizza"
 };
 
+// LOAD FILE
 function handleFile(e) {
   const reader = new FileReader();
   reader.onload = evt => {
@@ -121,12 +117,14 @@ function handleFile(e) {
   reader.readAsArrayBuffer(e.target.files[0]);
 }
 
+// COLUMN DROPDOWN
 function populateColumns() {
   const sel = document.getElementById("columnSelect");
-  sel.innerHTML = "<option value=''>Select Column</option>";
+  sel.innerHTML = "<option value=''>Select Item Name Column</option>";
   headers.forEach(h => sel.innerHTML += `<option value="${h}">${h}</option>`);
 }
 
+// RENDER TABLES
 function renderTables() {
   renderTable("inputTable", originalData);
   renderTable("outputTable", cleanedData);
@@ -136,43 +134,82 @@ function renderTable(id, data) {
   const table = document.getElementById(id);
   table.innerHTML = "";
 
-  let tr = document.createElement("tr");
+  const tr = document.createElement("tr");
   headers.forEach(h => {
-    let th = document.createElement("th");
-    th.innerText = h;
+    const th = document.createElement("th");
+    th.textContent = h;
     tr.appendChild(th);
   });
   table.appendChild(tr);
 
-  data.slice(0, 10).forEach(row => {
-    let tr = document.createElement("tr");
+  data.slice(0, 10).forEach((row, i) => {
+    const tr = document.createElement("tr");
+
+    if (id === "outputTable" && highlightedIndexes.has(i)) {
+      tr.classList.add("highlight");
+    }
+
     headers.forEach(h => {
-      let td = document.createElement("td");
-      td.innerText = row[h];
+      const td = document.createElement("td");
+      td.textContent = row[h];
       tr.appendChild(td);
     });
     table.appendChild(tr);
   });
 }
 
+// DUPLICATE REMOVER (SMART LOGIC)
 function removeDuplicates() {
-  const col = columnSelect.value;
-  if (!col) return alert("Select column");
+  const nameCol = columnSelect.value;
+  if (!nameCol) return alert("Select Item Name column");
 
-  const seen = new Set();
-  cleanedData = cleanedData.filter(r => {
-    const v = r[col]?.toLowerCase().trim();
-    if (seen.has(v)) return false;
-    seen.add(v);
-    return true;
+  const priceCol = "Price"; // must match Excel header
+  highlightedIndexes.clear();
+
+  const groups = {};
+  cleanedData.forEach((row, idx) => {
+    const key = row[nameCol]?.toLowerCase().trim();
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ row, idx });
   });
 
+  const finalData = [];
+
+  Object.values(groups).forEach(items => {
+    if (items.length === 1) {
+      finalData.push(items[0]);
+      return;
+    }
+
+    const priceMap = {};
+    items.forEach(it => {
+      const p = it.row[priceCol];
+      if (!priceMap[p]) priceMap[p] = [];
+      priceMap[p].push(it);
+    });
+
+    const prices = Object.keys(priceMap);
+
+    if (prices.length > 1) {
+      prices.forEach(p => {
+        priceMap[p].forEach(it => {
+          highlightedIndexes.add(finalData.length);
+          finalData.push(it);
+        });
+      });
+    } else {
+      finalData.push(items[0]);
+    }
+  });
+
+  cleanedData = finalData.map(r => r.row);
   renderTables();
 }
 
+// SPELL CHECK (WORD BY WORD)
 async function spellCheck() {
   const col = columnSelect.value;
-  if (!col) return alert("Select column");
+  if (!col) return alert("Select Item Name column");
 
   suggestions = [];
   document.getElementById("approvals").innerHTML = "";
@@ -181,39 +218,50 @@ async function spellCheck() {
     let text = cleanedData[i][col];
     if (!text) continue;
 
-    let lower = text.toLowerCase();
-    if (foodDictionary[lower]) {
-      suggestions.push({ i, col, from: text, to: foodDictionary[lower] });
-      continue;
+    let words = text.split(" ");
+    let corrected = [...words];
+    let changed = false;
+
+    for (let w = 0; w < words.length; w++) {
+      let cleanWord = words[w].toLowerCase().replace(/[^a-z]/g, "");
+      if (foodDictionary[cleanWord]) {
+        corrected[w] = foodDictionary[cleanWord];
+        changed = true;
+      }
     }
 
-    const res = await fetch("https://api.languagetool.org/v2/check", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ text, language: "en-US" })
-    });
-    const data = await res.json();
-    if (data.matches.length > 0) {
+    if (changed) {
       suggestions.push({
-        i,
-        col,
+        index: i,
+        column: col,
         from: text,
-        to: data.matches[0].replacements[0]?.value || text
+        to: corrected.join(" ")
       });
     }
   }
+
+  if (suggestions.length === 0) {
+    document.getElementById("approvals").innerHTML =
+      "<b>No spelling mistakes found</b>";
+    return;
+  }
+
   renderApprovals();
 }
 
+// APPROVAL UI
 function renderApprovals() {
   const div = document.getElementById("approvals");
-  div.innerHTML = "<h3>Approve / Reject Corrections</h3>";
+  div.innerHTML = "<h3>Approve Spelling Corrections</h3>";
 
   suggestions.forEach(s => {
     div.innerHTML += `
       <div class="approval">
-        <b>${s.from}</b> → <span style="color:green">${s.to}</span>
-        <button onclick="approve(${s.i}, '${s.col}', '${s.to}')">Approve</button>
+        <b>${s.from}</b><br>
+        ➜ <span style="color:green">${s.to}</span><br>
+        <button onclick="approve(${s.index}, '${s.column}', \`${s.to}\`)">
+          Apply
+        </button>
       </div>
     `;
   });
@@ -224,6 +272,7 @@ function approve(i, col, val) {
   renderTables();
 }
 
+// DOWNLOAD
 function downloadExcel() {
   const ws = XLSX.utils.json_to_sheet(cleanedData);
   const wb = XLSX.utils.book_new();
