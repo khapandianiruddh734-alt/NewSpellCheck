@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Excel Menu Cleaner</title>
+<title>Excel Cleaner Tool</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -12,7 +12,7 @@ body {
   padding: 20px;
 }
 .container {
-  max-width: 1300px;
+  max-width: 1400px;
   margin: auto;
   background: white;
   padding: 20px;
@@ -30,6 +30,7 @@ button {
   cursor: pointer;
 }
 button:hover { background: #1e40af; }
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -41,14 +42,14 @@ th, td {
   padding: 6px;
 }
 th { background: #f1f5f9; }
+
 .flex { display: flex; gap: 20px; }
 .half { width: 50%; }
-.highlight { background: #fff3cd; }
-.approval {
-  background: #f9fafb;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 6px;
+
+.spellHighlight { background: #d1fae5; } /* green */
+.multiSelect {
+  width: 300px;
+  height: 120px;
 }
 </style>
 </head>
@@ -56,13 +57,18 @@ th { background: #f1f5f9; }
 <body>
 
 <div class="container">
-<h2>Upload Excel → Clean → Download</h2>
+<h2>Excel Cleaner (Simple & Correct)</h2>
 
 <input type="file" accept=".xlsx,.csv" onchange="handleFile(event)">
-<br>
+<br><br>
 
-<select id="columnSelect"></select>
-<br>
+<b>Item Name column (for duplicate removal)</b><br>
+<select id="itemColumn"></select>
+<br><br>
+
+<b>Columns for spell check (Ctrl + Click)</b><br>
+<select id="spellColumns" class="multiSelect" multiple></select>
+<br><br>
 
 <button onclick="removeDuplicates()">Remove Duplicates</button>
 <button onclick="spellCheck()">Spell Check</button>
@@ -78,75 +84,79 @@ th { background: #f1f5f9; }
     <table id="outputTable"></table>
   </div>
 </div>
-
-<div id="approvals"></div>
 </div>
 
 <script>
 let originalData = [];
 let cleanedData = [];
 let headers = [];
-let suggestions = [];
-let highlightedIndexes = new Set();
+let spellHighlights = new Set();
 
-// FOOD DICTIONARY
+/* FOOD DICTIONARY */
 const foodDictionary = {
   "chiken": "chicken",
-  "biriyani": "biryani",
   "coffe": "coffee",
   "frape": "frappe",
+  "piza": "pizza",
   "sandwitch": "sandwich",
   "nudels": "noodles",
-  "piza": "pizza"
+  "biriyani": "biryani"
 };
 
-// LOAD FILE
+/* LOAD FILE */
 function handleFile(e) {
   const reader = new FileReader();
   reader.onload = evt => {
-    const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
 
     originalData = XLSX.utils.sheet_to_json(sheet);
     cleanedData = JSON.parse(JSON.stringify(originalData));
     headers = Object.keys(originalData[0]);
 
-    populateColumns();
+    populateSelectors();
     renderTables();
   };
   reader.readAsArrayBuffer(e.target.files[0]);
 }
 
-// COLUMN DROPDOWN
-function populateColumns() {
-  const sel = document.getElementById("columnSelect");
-  sel.innerHTML = "<option value=''>Select Item Name Column</option>";
-  headers.forEach(h => sel.innerHTML += `<option value="${h}">${h}</option>`);
+/* POPULATE SELECTORS */
+function populateSelectors() {
+  const itemSel = document.getElementById("itemColumn");
+  const spellSel = document.getElementById("spellColumns");
+
+  itemSel.innerHTML = "<option value=''>Select Item Name</option>";
+  spellSel.innerHTML = "";
+
+  headers.forEach(h => {
+    itemSel.innerHTML += `<option value="${h}">${h}</option>`;
+    spellSel.innerHTML += `<option value="${h}">${h}</option>`;
+  });
 }
 
-// RENDER TABLES
+/* RENDER TABLES (PREVIEW ONLY) */
 function renderTables() {
-  renderTable("inputTable", originalData);
-  renderTable("outputTable", cleanedData);
+  renderTable("inputTable", originalData, false);
+  renderTable("outputTable", cleanedData, true);
 }
 
-function renderTable(id, data) {
+function renderTable(id, data, isOutput) {
   const table = document.getElementById(id);
   table.innerHTML = "";
 
-  const tr = document.createElement("tr");
+  const headerRow = document.createElement("tr");
   headers.forEach(h => {
     const th = document.createElement("th");
     th.textContent = h;
-    tr.appendChild(th);
+    headerRow.appendChild(th);
   });
-  table.appendChild(tr);
+  table.appendChild(headerRow);
 
   data.slice(0, 10).forEach((row, i) => {
     const tr = document.createElement("tr");
 
-    if (id === "outputTable" && highlightedIndexes.has(i)) {
-      tr.classList.add("highlight");
+    if (isOutput && spellHighlights.has(i)) {
+      tr.classList.add("spellHighlight");
     }
 
     headers.forEach(h => {
@@ -154,125 +164,73 @@ function renderTable(id, data) {
       td.textContent = row[h];
       tr.appendChild(td);
     });
+
     table.appendChild(tr);
   });
 }
 
-// DUPLICATE REMOVER (SMART LOGIC)
+/* DUPLICATE REMOVER
+   Rule:
+   Same Item Name + Same Price → keep ONE
+*/
 function removeDuplicates() {
-  const nameCol = columnSelect.value;
+  const nameCol = document.getElementById("itemColumn").value;
   if (!nameCol) return alert("Select Item Name column");
 
   const priceCol = "Price"; // must match Excel header
-  highlightedIndexes.clear();
 
-  const groups = {};
-  cleanedData.forEach((row, idx) => {
-    const key = row[nameCol]?.toLowerCase().trim();
-    if (!groups[key]) groups[key] = [];
-    groups[key].push({ row, idx });
-  });
+  const seen = new Set();
+  const result = [];
 
-  const finalData = [];
-
-  Object.values(groups).forEach(items => {
-    if (items.length === 1) {
-      finalData.push(items[0]);
-      return;
-    }
-
-    const priceMap = {};
-    items.forEach(it => {
-      const p = it.row[priceCol];
-      if (!priceMap[p]) priceMap[p] = [];
-      priceMap[p].push(it);
-    });
-
-    const prices = Object.keys(priceMap);
-
-    if (prices.length > 1) {
-      prices.forEach(p => {
-        priceMap[p].forEach(it => {
-          highlightedIndexes.add(finalData.length);
-          finalData.push(it);
-        });
-      });
-    } else {
-      finalData.push(items[0]);
+  cleanedData.forEach(row => {
+    const key = `${row[nameCol]?.toLowerCase().trim()}__${row[priceCol]}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(row);
     }
   });
 
-  cleanedData = finalData.map(r => r.row);
+  cleanedData = result;
   renderTables();
 }
 
-// SPELL CHECK (WORD BY WORD)
-async function spellCheck() {
-  const col = columnSelect.value;
-  if (!col) return alert("Select Item Name column");
+/* SPELL CHECK (AUTO, MULTI-COLUMN, FULL SHEET) */
+function spellCheck() {
+  const cols = Array.from(
+    document.getElementById("spellColumns").selectedOptions
+  ).map(o => o.value);
 
-  suggestions = [];
-  document.getElementById("approvals").innerHTML = "";
+  if (cols.length === 0)
+    return alert("Select at least one column for spell check");
 
-  for (let i = 0; i < cleanedData.length; i++) {
-    let text = cleanedData[i][col];
-    if (!text) continue;
+  spellHighlights.clear();
 
-    let words = text.split(" ");
-    let corrected = [...words];
+  cleanedData.forEach((row, idx) => {
     let changed = false;
 
-    for (let w = 0; w < words.length; w++) {
-      let cleanWord = words[w].toLowerCase().replace(/[^a-z]/g, "");
-      if (foodDictionary[cleanWord]) {
-        corrected[w] = foodDictionary[cleanWord];
-        changed = true;
-      }
-    }
+    cols.forEach(col => {
+      if (!row[col]) return;
 
-    if (changed) {
-      suggestions.push({
-        index: i,
-        column: col,
-        from: text,
-        to: corrected.join(" ")
+      let words = row[col].split(" ");
+      words = words.map(w => {
+        const clean = w.toLowerCase().replace(/[^a-z]/g, "");
+        if (foodDictionary[clean]) {
+          changed = true;
+          return foodDictionary[clean];
+        }
+        return w;
       });
-    }
-  }
 
-  if (suggestions.length === 0) {
-    document.getElementById("approvals").innerHTML =
-      "<b>No spelling mistakes found</b>";
-    return;
-  }
+      if (changed) row[col] = words.join(" ");
+    });
 
-  renderApprovals();
-}
-
-// APPROVAL UI
-function renderApprovals() {
-  const div = document.getElementById("approvals");
-  div.innerHTML = "<h3>Approve Spelling Corrections</h3>";
-
-  suggestions.forEach(s => {
-    div.innerHTML += `
-      <div class="approval">
-        <b>${s.from}</b><br>
-        ➜ <span style="color:green">${s.to}</span><br>
-        <button onclick="approve(${s.index}, '${s.column}', \`${s.to}\`)">
-          Apply
-        </button>
-      </div>
-    `;
+    if (changed) spellHighlights.add(idx);
   });
-}
 
-function approve(i, col, val) {
-  cleanedData[i][col] = val;
   renderTables();
 }
 
-// DOWNLOAD
+/* DOWNLOAD FULL CLEANED SHEET */
 function downloadExcel() {
   const ws = XLSX.utils.json_to_sheet(cleanedData);
   const wb = XLSX.utils.book_new();
