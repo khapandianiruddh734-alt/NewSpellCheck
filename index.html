@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Excel Menu Cleaner</title>
+<title>Excel Cleaner Tool</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -46,9 +46,7 @@ th { background: #f1f5f9; }
 .flex { display: flex; gap: 20px; }
 .half { width: 50%; }
 
-.dupHighlight { background: #fff3cd; }     /* yellow */
-.spellHighlight { background: #d1fae5; }   /* green */
-
+.spellHighlight { background: #d1fae5; } /* green */
 .multiSelect {
   width: 300px;
   height: 120px;
@@ -59,16 +57,16 @@ th { background: #f1f5f9; }
 <body>
 
 <div class="container">
-<h2>Upload Excel → Clean → Download</h2>
+<h2>Excel Cleaner (Simple & Correct)</h2>
 
 <input type="file" accept=".xlsx,.csv" onchange="handleFile(event)">
 <br><br>
 
-<b>Item name column (for duplicate logic)</b><br>
+<b>Item Name column (for duplicate removal)</b><br>
 <select id="itemColumn"></select>
 <br><br>
 
-<b>Select columns for spell check (Ctrl + Click)</b><br>
+<b>Columns for spell check (Ctrl + Click)</b><br>
 <select id="spellColumns" class="multiSelect" multiple></select>
 <br><br>
 
@@ -86,15 +84,13 @@ th { background: #f1f5f9; }
     <table id="outputTable"></table>
   </div>
 </div>
-
 </div>
 
 <script>
 let originalData = [];
 let cleanedData = [];
 let headers = [];
-let duplicateHighlights = new Set();
-let spellingHighlights = new Set();
+let spellHighlights = new Set();
 
 /* FOOD DICTIONARY */
 const foodDictionary = {
@@ -124,7 +120,7 @@ function handleFile(e) {
   reader.readAsArrayBuffer(e.target.files[0]);
 }
 
-/* POPULATE DROPDOWNS */
+/* POPULATE SELECTORS */
 function populateSelectors() {
   const itemSel = document.getElementById("itemColumn");
   const spellSel = document.getElementById("spellColumns");
@@ -138,7 +134,7 @@ function populateSelectors() {
   });
 }
 
-/* RENDER TABLES */
+/* RENDER TABLES (PREVIEW ONLY) */
 function renderTables() {
   renderTable("inputTable", originalData, false);
   renderTable("outputTable", cleanedData, true);
@@ -148,20 +144,19 @@ function renderTable(id, data, isOutput) {
   const table = document.getElementById(id);
   table.innerHTML = "";
 
-  const headRow = document.createElement("tr");
+  const headerRow = document.createElement("tr");
   headers.forEach(h => {
     const th = document.createElement("th");
     th.textContent = h;
-    headRow.appendChild(th);
+    headerRow.appendChild(th);
   });
-  table.appendChild(headRow);
+  table.appendChild(headerRow);
 
   data.slice(0, 10).forEach((row, i) => {
     const tr = document.createElement("tr");
 
-    if (isOutput) {
-      if (duplicateHighlights.has(i)) tr.classList.add("dupHighlight");
-      if (spellingHighlights.has(i)) tr.classList.add("spellHighlight");
+    if (isOutput && spellHighlights.has(i)) {
+      tr.classList.add("spellHighlight");
     }
 
     headers.forEach(h => {
@@ -174,47 +169,24 @@ function renderTable(id, data, isOutput) {
   });
 }
 
-/* DUPLICATE REMOVER (PRICE-AWARE) */
+/* DUPLICATE REMOVER
+   Rule:
+   Same Item Name + Same Price → keep ONE
+*/
 function removeDuplicates() {
   const nameCol = document.getElementById("itemColumn").value;
   if (!nameCol) return alert("Select Item Name column");
 
-  const priceCol = "Price";
-  duplicateHighlights.clear();
+  const priceCol = "Price"; // must match Excel header
 
-  const groups = {};
-  cleanedData.forEach((row, idx) => {
-    const key = row[nameCol]?.toLowerCase().trim();
-    if (!groups[key]) groups[key] = [];
-    groups[key].push({ row, idx });
-  });
-
+  const seen = new Set();
   const result = [];
 
-  Object.values(groups).forEach(items => {
-    if (items.length === 1) {
-      result.push(items[0].row);
-      return;
-    }
-
-    const priceMap = {};
-    items.forEach(it => {
-      const p = it.row[priceCol];
-      if (!priceMap[p]) priceMap[p] = [];
-      priceMap[p].push(it);
-    });
-
-    const prices = Object.keys(priceMap);
-
-    if (prices.length > 1) {
-      prices.forEach(p => {
-        priceMap[p].forEach(it => {
-          duplicateHighlights.add(result.length);
-          result.push(it.row);
-        });
-      });
-    } else {
-      result.push(items[0].row);
+  cleanedData.forEach(row => {
+    const key = `${row[nameCol]?.toLowerCase().trim()}__${row[priceCol]}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(row);
     }
   });
 
@@ -222,43 +194,43 @@ function removeDuplicates() {
   renderTables();
 }
 
-/* SPELL CHECK (AUTO + MULTI COLUMN) */
+/* SPELL CHECK (AUTO, MULTI-COLUMN, FULL SHEET) */
 function spellCheck() {
-  const selectedCols = Array.from(
+  const cols = Array.from(
     document.getElementById("spellColumns").selectedOptions
   ).map(o => o.value);
 
-  if (selectedCols.length === 0)
+  if (cols.length === 0)
     return alert("Select at least one column for spell check");
 
-  spellingHighlights.clear();
+  spellHighlights.clear();
 
   cleanedData.forEach((row, idx) => {
-    let rowChanged = false;
+    let changed = false;
 
-    selectedCols.forEach(col => {
+    cols.forEach(col => {
       if (!row[col]) return;
 
       let words = row[col].split(" ");
       words = words.map(w => {
         const clean = w.toLowerCase().replace(/[^a-z]/g, "");
         if (foodDictionary[clean]) {
-          rowChanged = true;
+          changed = true;
           return foodDictionary[clean];
         }
         return w;
       });
 
-      if (rowChanged) row[col] = words.join(" ");
+      if (changed) row[col] = words.join(" ");
     });
 
-    if (rowChanged) spellingHighlights.add(idx);
+    if (changed) spellHighlights.add(idx);
   });
 
   renderTables();
 }
 
-/* DOWNLOAD */
+/* DOWNLOAD FULL CLEANED SHEET */
 function downloadExcel() {
   const ws = XLSX.utils.json_to_sheet(cleanedData);
   const wb = XLSX.utils.book_new();
