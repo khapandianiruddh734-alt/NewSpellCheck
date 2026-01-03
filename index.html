@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Excel Cleaner Tool</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      padding: 30px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    h2 { margin-bottom: 10px; }
+    input, select, button {
+      padding: 10px;
+      margin: 8px 0;
+      width: 100%;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    button:hover { background: #1e40af; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th { background: #f1f5f9; }
+    .info {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Excel Cleaner Tool</h2>
+  <p>Upload CSV / XLSX → Remove duplicates → Fix spelling</p>
+
+  <input type="file" id="fileInput" accept=".csv,.xlsx" />
+
+  <select id="columnSelect">
+    <option value="">Select Column</option>
+  </select>
+
+  <button onclick="removeDuplicates()">Remove Duplicates</button>
+  <button onclick="spellCheck()">Spell Check</button>
+  <button onclick="downloadExcel()">Download Cleaned File</button>
+
+  <div class="info" id="stats"></div>
+
+  <table id="preview"></table>
+</div>
+
+<script>
+let workbookData = [];
+let headers = [];
+
+document.getElementById("fileInput").addEventListener("change", handleFile);
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  const reader = new FileReader();
+
+  reader.onload = (evt) => {
+    const data = new Uint8Array(evt.target.result);
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    workbookData = XLSX.utils.sheet_to_json(sheet);
+
+    headers = Object.keys(workbookData[0]);
+    const select = document.getElementById("columnSelect");
+    select.innerHTML = '<option value="">Select Column</option>';
+
+    headers.forEach(h => {
+      const opt = document.createElement("option");
+      opt.value = h;
+      opt.textContent = h;
+      select.appendChild(opt);
+    });
+
+    renderTable(workbookData);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderTable(data) {
+  const table = document.getElementById("preview");
+  table.innerHTML = "";
+
+  const tr = document.createElement("tr");
+  headers.forEach(h => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    tr.appendChild(th);
+  });
+  table.appendChild(tr);
+
+  data.slice(0, 10).forEach(row => {
+    const tr = document.createElement("tr");
+    headers.forEach(h => {
+      const td = document.createElement("td");
+      td.textContent = row[h];
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+}
+
+function removeDuplicates() {
+  const column = document.getElementById("columnSelect").value;
+  if (!column) return alert("Select a column first!");
+
+  const seen = new Set();
+  const cleaned = [];
+
+  workbookData.forEach(row => {
+    const value = row[column]?.toString().toLowerCase().trim();
+    if (!seen.has(value)) {
+      seen.add(value);
+      cleaned.push(row);
+    }
+  });
+
+  document.getElementById("stats").innerText =
+    `Duplicates removed: ${workbookData.length - cleaned.length}`;
+
+  workbookData = cleaned;
+  renderTable(workbookData);
+}
+
+async function spellCheck() {
+  const column = document.getElementById("columnSelect").value;
+  if (!column) return alert("Select a column first!");
+
+  for (let row of workbookData) {
+    const text = row[column];
+    if (!text) continue;
+
+    const res = await fetch("https://api.languagetool.org/v2/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ text, language: "en-US" })
+    });
+
+    const data = await res.json();
+    if (data.matches.length > 0) {
+      row[column] = data.matches[0].replacements[0]?.value || text;
+    }
+  }
+
+  document.getElementById("stats").innerText = "Spelling corrected successfully";
+  renderTable(workbookData);
+}
+
+function downloadExcel() {
+  const ws = XLSX.utils.json_to_sheet(workbookData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Cleaned Data");
+  XLSX.writeFile(wb, "cleaned_data.xlsx");
+}
+</script>
+
+</body>
+</html>
