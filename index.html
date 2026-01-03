@@ -1,124 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Excel Cleaner Tool</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
-      padding: 30px;
-    }
-    .container {
-      max-width: 900px;
-      margin: auto;
-      background: white;
-      padding: 25px;
-      border-radius: 10px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
-    h2 { margin-bottom: 10px; }
-    input, select, button {
-      padding: 10px;
-      margin: 8px 0;
-      width: 100%;
-    }
-    button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 6px;
-    }
-    button:hover { background: #1e40af; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: left;
-    }
-    th { background: #f1f5f9; }
-    .info {
-      margin-top: 10px;
-      font-weight: bold;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Excel Cleaner Tool</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  padding: 20px;
+}
+.container {
+  max-width: 1200px;
+  margin: auto;
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+}
+button, select, input {
+  padding: 8px;
+  margin: 5px 0;
+}
+button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+button:hover { background: #1e40af; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 13px;
+}
+th, td {
+  border: 1px solid #ddd;
+  padding: 6px;
+}
+th { background: #f1f5f9; }
+.flex {
+  display: flex;
+  gap: 20px;
+}
+.half {
+  width: 50%;
+}
+.approval {
+  background: #f9fafb;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 6px;
+}
+</style>
 </head>
+
 <body>
 
 <div class="container">
-  <h2>Excel Cleaner Tool</h2>
-  <p>Upload CSV / XLSX → Remove duplicates → Fix spelling</p>
+<h2>Excel Cleaner Tool</h2>
+<p>Upload Excel → Clean → Download</p>
 
-  <input type="file" id="fileInput" accept=".csv,.xlsx" />
+<input type="file" accept=".xlsx,.csv" onchange="handleFile(event)">
+<br>
 
-  <select id="columnSelect">
-    <option value="">Select Column</option>
-  </select>
+<select id="columnSelect"></select>
+<br>
 
-  <button onclick="removeDuplicates()">Remove Duplicates</button>
-  <button onclick="spellCheck()">Spell Check</button>
-  <button onclick="downloadExcel()">Download Cleaned File</button>
+<button onclick="removeDuplicates()">Remove Duplicates</button>
+<button onclick="spellCheck()">Spell Check</button>
+<button onclick="downloadExcel()">Download Cleaned File</button>
 
-  <div class="info" id="stats"></div>
+<div class="flex">
+  <div class="half">
+    <h3>Input (Original)</h3>
+    <table id="inputTable"></table>
+  </div>
+  <div class="half">
+    <h3>Output (Cleaned)</h3>
+    <table id="outputTable"></table>
+  </div>
+</div>
 
-  <table id="preview"></table>
+<div id="approvals"></div>
 </div>
 
 <script>
-let workbookData = [];
+let originalData = [];
+let cleanedData = [];
 let headers = [];
+let suggestions = [];
 
-document.getElementById("fileInput").addEventListener("change", handleFile);
+// FOOD DICTIONARY
+const foodDictionary = {
+  "chiken": "chicken",
+  "biriyani": "biryani",
+  "piza": "pizza",
+  "sandwitch": "sandwich",
+  "nudels": "noodles",
+  "french frise": "french fries",
+  "paneer tikka masla": "paneer tikka masala"
+};
 
 function handleFile(e) {
-  const file = e.target.files[0];
   const reader = new FileReader();
-
-  reader.onload = (evt) => {
-    const data = new Uint8Array(evt.target.result);
-    const workbook = XLSX.read(data, { type: "array" });
+  reader.onload = evt => {
+    const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    workbookData = XLSX.utils.sheet_to_json(sheet);
 
-    headers = Object.keys(workbookData[0]);
-    const select = document.getElementById("columnSelect");
-    select.innerHTML = '<option value="">Select Column</option>';
+    originalData = XLSX.utils.sheet_to_json(sheet);
+    cleanedData = JSON.parse(JSON.stringify(originalData));
+    headers = Object.keys(originalData[0]);
 
-    headers.forEach(h => {
-      const opt = document.createElement("option");
-      opt.value = h;
-      opt.textContent = h;
-      select.appendChild(opt);
-    });
-
-    renderTable(workbookData);
+    populateColumns();
+    renderTables();
   };
-  reader.readAsArrayBuffer(file);
+  reader.readAsArrayBuffer(e.target.files[0]);
 }
 
-function renderTable(data) {
-  const table = document.getElementById("preview");
+function populateColumns() {
+  const sel = document.getElementById("columnSelect");
+  sel.innerHTML = "<option value=''>Select Column</option>";
+  headers.forEach(h => sel.innerHTML += `<option value="${h}">${h}</option>`);
+}
+
+function renderTables() {
+  renderTable("inputTable", originalData);
+  renderTable("outputTable", cleanedData);
+}
+
+function renderTable(id, data) {
+  const table = document.getElementById(id);
   table.innerHTML = "";
 
-  const tr = document.createElement("tr");
+  let tr = document.createElement("tr");
   headers.forEach(h => {
-    const th = document.createElement("th");
-    th.textContent = h;
+    let th = document.createElement("th");
+    th.innerText = h;
     tr.appendChild(th);
   });
   table.appendChild(tr);
 
   data.slice(0, 10).forEach(row => {
-    const tr = document.createElement("tr");
+    let tr = document.createElement("tr");
     headers.forEach(h => {
-      const td = document.createElement("td");
-      td.textContent = row[h];
+      let td = document.createElement("td");
+      td.innerText = row[h];
       tr.appendChild(td);
     });
     table.appendChild(tr);
@@ -126,55 +156,78 @@ function renderTable(data) {
 }
 
 function removeDuplicates() {
-  const column = document.getElementById("columnSelect").value;
-  if (!column) return alert("Select a column first!");
+  const col = columnSelect.value;
+  if (!col) return alert("Select column");
 
   const seen = new Set();
-  const cleaned = [];
-
-  workbookData.forEach(row => {
-    const value = row[column]?.toString().toLowerCase().trim();
-    if (!seen.has(value)) {
-      seen.add(value);
-      cleaned.push(row);
-    }
+  cleanedData = cleanedData.filter(r => {
+    const v = r[col]?.toLowerCase().trim();
+    if (seen.has(v)) return false;
+    seen.add(v);
+    return true;
   });
 
-  document.getElementById("stats").innerText =
-    `Duplicates removed: ${workbookData.length - cleaned.length}`;
-
-  workbookData = cleaned;
-  renderTable(workbookData);
+  renderTables();
 }
 
 async function spellCheck() {
-  const column = document.getElementById("columnSelect").value;
-  if (!column) return alert("Select a column first!");
+  const col = columnSelect.value;
+  if (!col) return alert("Select column");
 
-  for (let row of workbookData) {
-    const text = row[column];
+  suggestions = [];
+  document.getElementById("approvals").innerHTML = "";
+
+  for (let i = 0; i < cleanedData.length; i++) {
+    let text = cleanedData[i][col];
     if (!text) continue;
+
+    let lower = text.toLowerCase();
+    if (foodDictionary[lower]) {
+      suggestions.push({ i, col, from: text, to: foodDictionary[lower] });
+      continue;
+    }
 
     const res = await fetch("https://api.languagetool.org/v2/check", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ text, language: "en-US" })
     });
-
     const data = await res.json();
     if (data.matches.length > 0) {
-      row[column] = data.matches[0].replacements[0]?.value || text;
+      suggestions.push({
+        i,
+        col,
+        from: text,
+        to: data.matches[0].replacements[0]?.value || text
+      });
     }
   }
+  renderApprovals();
+}
 
-  document.getElementById("stats").innerText = "Spelling corrected successfully";
-  renderTable(workbookData);
+function renderApprovals() {
+  const div = document.getElementById("approvals");
+  div.innerHTML = "<h3>Approve / Reject Corrections</h3>";
+
+  suggestions.forEach(s => {
+    div.innerHTML += `
+      <div class="approval">
+        <b>${s.from}</b> → <span style="color:green">${s.to}</span>
+        <button onclick="approve(${s.i}, '${s.col}', '${s.to}')">Approve</button>
+      </div>
+    `;
+  });
+}
+
+function approve(i, col, val) {
+  cleanedData[i][col] = val;
+  renderTables();
 }
 
 function downloadExcel() {
-  const ws = XLSX.utils.json_to_sheet(workbookData);
+  const ws = XLSX.utils.json_to_sheet(cleanedData);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Cleaned Data");
+  XLSX.utils.book_append_sheet(wb, ws, "Cleaned");
   XLSX.writeFile(wb, "cleaned_data.xlsx");
 }
 </script>
