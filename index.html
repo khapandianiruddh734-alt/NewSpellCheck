@@ -1,285 +1,499 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Excel Menu Cleaner</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniMasterSuite | Pro AI Tools</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
-  padding: 20px;
-}
-.container {
-  max-width: 1300px;
-  margin: auto;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-}
-button, select, input {
-  padding: 8px;
-  margin: 5px 0;
-}
-button {
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-button:hover { background: #1e40af; }
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 13px;
-}
-th, td {
-  border: 1px solid #ddd;
-  padding: 6px;
-}
-th { background: #f1f5f9; }
-.flex { display: flex; gap: 20px; }
-.half { width: 50%; }
-.highlight { background: #fff3cd; }
-.approval {
-  background: #f9fafb;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 6px;
-}
-</style>
-</head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
 
-<body>
-
-<div class="container">
-<h2>Upload Excel → Clean → Download</h2>
-
-<input type="file" accept=".xlsx,.csv" onchange="handleFile(event)">
-<br>
-
-<select id="columnSelect"></select>
-<br>
-
-<button onclick="removeDuplicates()">Remove Duplicates</button>
-<button onclick="spellCheck()">Spell Check</button>
-<button onclick="downloadExcel()">Download Cleaned File</button>
-
-<div class="flex">
-  <div class="half">
-    <h3>Input (Original)</h3>
-    <table id="inputTable"></table>
-  </div>
-  <div class="half">
-    <h3>Output (Cleaned)</h3>
-    <table id="outputTable"></table>
-  </div>
-</div>
-
-<div id="approvals"></div>
-</div>
-
-<script>
-let originalData = [];
-let cleanedData = [];
-let headers = [];
-let suggestions = [];
-let highlightedIndexes = new Set();
-
-// FOOD DICTIONARY
-const foodDictionary = {
-  "chiken": "chicken",
-  "biriyani": "biryani",
-  "coffe": "coffee",
-  "frape": "frappe",
-  "sandwitch": "sandwich",
-  "nudels": "noodles",
-  "piza": "pizza"
-};
-
-// LOAD FILE
-function handleFile(e) {
-  const reader = new FileReader();
-  reader.onload = evt => {
-    const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-    originalData = XLSX.utils.sheet_to_json(sheet);
-    cleanedData = JSON.parse(JSON.stringify(originalData));
-    headers = Object.keys(originalData[0]);
-
-    populateColumns();
-    renderTables();
-  };
-  reader.readAsArrayBuffer(e.target.files[0]);
-}
-
-// COLUMN DROPDOWN
-function populateColumns() {
-  const sel = document.getElementById("columnSelect");
-  sel.innerHTML = "<option value=''>Select Item Name Column</option>";
-  headers.forEach(h => sel.innerHTML += `<option value="${h}">${h}</option>`);
-}
-
-// RENDER TABLES
-function renderTables() {
-  renderTable("inputTable", originalData);
-  renderTable("outputTable", cleanedData);
-}
-
-function renderTable(id, data) {
-  const table = document.getElementById(id);
-  table.innerHTML = "";
-
-  const tr = document.createElement("tr");
-  headers.forEach(h => {
-    const th = document.createElement("th");
-    th.textContent = h;
-    tr.appendChild(th);
-  });
-  table.appendChild(tr);
-
-  data.slice(0, 10).forEach((row, i) => {
-    const tr = document.createElement("tr");
-
-    if (id === "outputTable" && highlightedIndexes.has(i)) {
-      tr.classList.add("highlight");
-    }
-
-    headers.forEach(h => {
-      const td = document.createElement("td");
-      td.textContent = row[h];
-      tr.appendChild(td);
-    });
-    table.appendChild(tr);
-  });
-}
-
-// DUPLICATE REMOVER (SMART LOGIC)
-function removeDuplicates() {
-  const nameCol = columnSelect.value;
-  if (!nameCol) return alert("Select Item Name column");
-
-  const priceCol = "Price"; // must match Excel header
-  highlightedIndexes.clear();
-
-  const groups = {};
-  cleanedData.forEach((row, idx) => {
-    const key = row[nameCol]?.toLowerCase().trim();
-    if (!groups[key]) groups[key] = [];
-    groups[key].push({ row, idx });
-  });
-
-  const finalData = [];
-
-  Object.values(groups).forEach(items => {
-    if (items.length === 1) {
-      finalData.push(items[0]);
-      return;
-    }
-
-    const priceMap = {};
-    items.forEach(it => {
-      const p = it.row[priceCol];
-      if (!priceMap[p]) priceMap[p] = [];
-      priceMap[p].push(it);
-    });
-
-    const prices = Object.keys(priceMap);
-
-    if (prices.length > 1) {
-      prices.forEach(p => {
-        priceMap[p].forEach(it => {
-          highlightedIndexes.add(finalData.length);
-          finalData.push(it);
-        });
-      });
-    } else {
-      finalData.push(items[0]);
-    }
-  });
-
-  cleanedData = finalData.map(r => r.row);
-  renderTables();
-}
-
-// SPELL CHECK (WORD BY WORD)
-async function spellCheck() {
-  const col = columnSelect.value;
-  if (!col) return alert("Select Item Name column");
-
-  suggestions = [];
-  document.getElementById("approvals").innerHTML = "";
-
-  for (let i = 0; i < cleanedData.length; i++) {
-    let text = cleanedData[i][col];
-    if (!text) continue;
-
-    let words = text.split(" ");
-    let corrected = [...words];
-    let changed = false;
-
-    for (let w = 0; w < words.length; w++) {
-      let cleanWord = words[w].toLowerCase().replace(/[^a-z]/g, "");
-      if (foodDictionary[cleanWord]) {
-        corrected[w] = foodDictionary[cleanWord];
-        changed = true;
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
       }
-    }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    if (changed) {
-      suggestions.push({
-        index: i,
-        column: col,
-        from: text,
-        to: corrected.join(" ")
-      });
-    }
-  }
+    <style>
+        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .tool-card { transition: all 0.2s ease; border: 1px solid #e2e8f0; }
+        .tool-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); border-color: #cbd5e1; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #6366f1; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
 
-  if (suggestions.length === 0) {
-    document.getElementById("approvals").innerHTML =
-      "<b>No spelling mistakes found</b>";
-    return;
-  }
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="location.reload()">
+                <div class="bg-indigo-600 text-white p-1.5 rounded-lg font-bold text-sm">AS</div>
+                <span class="text-xl font-bold text-slate-800">AniMaster<span class="text-indigo-600">Suite</span></span>
+            </div>
+        </div>
+    </nav>
 
-  renderApprovals();
-}
+    <div class="flex-grow max-w-7xl mx-auto px-4 py-10 w-full">
+        
+        <div id="menu-view">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                
+                <div>
+                    <h2 class="text-xs font-bold text-slate-400 tracking-wider mb-4 uppercase">AI & Data Tools</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        
+                        <div onclick="loadTool('menu-fixer-ai')" class="tool-card bg-white p-5 rounded-xl cursor-pointer flex items-center gap-4 border-l-4 border-purple-500 relative overflow-hidden group">
+                            <div class="absolute right-0 top-0 bg-purple-100 text-purple-700 text-[10px] px-2 py-1 rounded-bl-lg font-bold">AI POWERED</div>
+                            <div class="bg-purple-50 p-3 rounded-lg text-purple-600 text-xl"><i class="fas fa-magic"></i></div>
+                            <div>
+                                <h3 class="font-bold text-slate-700">AI Spelling Fixer</h3>
+                                <p class="text-xs text-slate-500 mt-1">Fix "Butter Noon" -> "Naan"</p>
+                            </div>
+                        </div>
 
-// APPROVAL UI
-function renderApprovals() {
-  const div = document.getElementById("approvals");
-  div.innerHTML = "<h3>Approve Spelling Corrections</h3>";
+                        <div onclick="loadTool('pdf-ocr-text')" class="tool-card bg-white p-5 rounded-xl cursor-pointer flex items-center gap-4">
+                            <div class="bg-blue-50 p-3 rounded-lg text-blue-600 text-xl"><i class="fas fa-file-alt"></i></div>
+                            <div><h3 class="font-bold text-slate-700">OCR Extractor</h3><p class="text-xs text-slate-500 mt-1">Get text from scanned PDF</p></div>
+                        </div>
 
-  suggestions.forEach(s => {
-    div.innerHTML += `
-      <div class="approval">
-        <b>${s.from}</b><br>
-        ➜ <span style="color:green">${s.to}</span><br>
-        <button onclick="approve(${s.index}, '${s.column}', \`${s.to}\`)">
-          Apply
-        </button>
-      </div>
-    `;
-  });
-}
+                        <div onclick="loadTool('excel-to-pdf')" class="tool-card bg-white p-5 rounded-xl cursor-pointer flex items-center gap-4">
+                            <div class="bg-emerald-50 p-3 rounded-lg text-emerald-600 text-xl"><i class="fas fa-table"></i></div>
+                            <div><h3 class="font-bold text-slate-700">Excel to PDF</h3></div>
+                        </div>
 
-function approve(i, col, val) {
-  cleanedData[i][col] = val;
-  renderTables();
-}
+                        <div onclick="loadTool('duplicate-remover')" class="tool-card bg-white p-5 rounded-xl cursor-pointer flex items-center gap-4">
+                            <div class="bg-orange-50 p-3 rounded-lg text-orange-600 text-xl"><i class="fas fa-clone"></i></div>
+                            <div><h3 class="font-bold text-slate-700">Duplicate Remover</h3></div>
+                        </div>
+                    </div>
+                </div>
 
-// DOWNLOAD
-function downloadExcel() {
-  const ws = XLSX.utils.json_to_sheet(cleanedData);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Cleaned");
-  XLSX.writeFile(wb, "cleaned_data.xlsx");
-}
-</script>
+                <div>
+                    <h2 class="text-xs font-bold text-slate-400 tracking-wider mb-4 uppercase">File Conversion</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div onclick="loadTool('jpg-to-pdf')" class="tool-card bg-white p-5 rounded-xl cursor-pointer flex items-center gap-4">
+                            <div class="bg-yellow-50 p-3 rounded-lg text-yellow-600 text-xl"><i class="fas fa-images"></i></div>
+                            <div><h3 class="font-bold text-slate-700">JPG to PDF</h3></div>
+                        </div>
+                        <div onclick="loadTool('word-to-pdf')" class="tool-card bg-white p-5 rounded-xl cursor-pointer flex items-center gap-4">
+                            <div class="bg-cyan-50 p-3 rounded-lg text-cyan-600 text-xl"><i class="fas fa-file-word"></i></div>
+                            <div><h3 class="font-bold text-slate-700">Word to PDF</h3></div>
+                        </div>
+                        <div onclick="loadTool('pdf-to-jpg')" class="tool-card bg-white p-5 rounded-xl cursor-pointer flex items-center gap-4">
+                            <div class="bg-red-50 p-3 rounded-lg text-red-600 text-xl"><i class="fas fa-file-image"></i></div>
+                            <div><h3 class="font-bold text-slate-700">PDF to JPG</h3></div>
+                        </div>
+                        <div onclick="loadTool('compress-pdf')" class="tool-card bg-white p-5 rounded-xl cursor-pointer flex items-center gap-4">
+                            <div class="bg-indigo-50 p-3 rounded-lg text-indigo-600 text-xl"><i class="fas fa-compress-arrows-alt"></i></div>
+                            <div><h3 class="font-bold text-slate-700">Compress PDF</h3></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <div id="workspace-view" class="hidden max-w-2xl mx-auto mt-8">
+            <button onclick="location.reload()" class="text-sm text-slate-500 hover:text-indigo-600 mb-6 flex items-center gap-2 transition">
+                <i class="fas fa-arrow-left"></i> Back to Tools
+            </button>
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+                <h1 id="tool-title" class="text-2xl font-bold text-slate-800 mb-2">Tool Name</h1>
+                <p id="tool-desc" class="text-slate-500 mb-8 text-sm">Description</p>
+
+                <div id="api-key-area" class="hidden mb-6 bg-purple-50 p-5 rounded-xl text-left border border-purple-100">
+                    <label class="block text-xs font-bold text-purple-700 uppercase mb-2 tracking-wide">Google Gemini API Key</label>
+                    <div class="relative">
+                        <input type="password" id="api-key-input" class="w-full p-3 pl-10 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm bg-white" placeholder="Paste your AIza... key here">
+                        <i class="fas fa-key absolute left-3 top-3.5 text-purple-300"></i>
+                    </div>
+                    <p class="text-xs text-purple-600/70 mt-2">
+                        <i class="fas fa-info-circle mr-1"></i> Get a free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline font-bold">Google AI Studio</a>.
+                    </p>
+                </div>
+
+                <div id="drop-area" class="border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 p-10 cursor-pointer hover:bg-slate-100 hover:border-indigo-400 transition group" onclick="document.getElementById('file-input').click()">
+                    <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-110 transition">
+                        <i class="fas fa-cloud-upload-alt text-2xl text-indigo-500"></i>
+                    </div>
+                    <span class="text-lg font-semibold text-slate-700">Click to Upload File</span>
+                    <p class="text-sm text-slate-400 mt-2" id="file-formats">Supports PDF, Excel, JPG...</p>
+                    <input type="file" id="file-input" class="hidden" onchange="handleFile(this.files)">
+                </div>
+
+                <div id="preview-area" class="hidden mt-8">
+                    <div id="preview-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-4 mb-6"></div>
+                    <button id="start-convert-btn" onclick="startProcessing()" class="bg-indigo-600 text-white px-8 py-3 rounded-lg shadow-lg hover:bg-indigo-700 font-bold transition w-full sm:w-auto">Start Conversion</button>
+                </div>
+
+                <div id="dup-options-area" class="hidden mt-8">
+                    <div class="flex gap-4">
+                        <button onclick="processDuplicateData('highlight')" class="flex-1 bg-yellow-400 text-yellow-900 font-bold py-3 rounded-xl hover:bg-yellow-500 transition">Highlight Duplicates</button>
+                        <button onclick="processDuplicateData('remove')" class="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition">Remove Rows</button>
+                    </div>
+                </div>
+
+                <div id="status-area" class="mt-8 hidden">
+                    <div id="loading-spinner" class="hidden flex flex-col items-center justify-center mb-4">
+                        <div class="loader mb-3"></div>
+                        <span class="text-indigo-600 font-medium animate-pulse" id="status-text">Processing...</span>
+                    </div>
+                    
+                    <div id="success-msg" class="hidden">
+                        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-green-600 text-xl"><i class="fas fa-check"></i></div>
+                        <p class="text-slate-800 font-bold text-lg mb-2">Finished!</p>
+                        <p id="success-details" class="text-sm text-slate-500 mb-6"></p>
+                        <button id="download-btn" class="bg-slate-900 text-white px-8 py-3 rounded-xl shadow-lg hover:bg-black font-bold transition flex items-center gap-2 mx-auto">
+                            <i class="fas fa-download"></i> Download File
+                        </button>
+                    </div>
+                    
+                    <div id="error-msg" class="hidden mt-4 bg-red-50 text-red-600 p-4 rounded-xl text-sm border border-red-100"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        window.processMenuFixerAI = async function(files) {
+            const apiKey = document.getElementById('api-key-input').value.trim();
+            if(!apiKey) { 
+                alert("Please enter your Google API Key.");
+                resetToUpload();
+                return; 
+            }
+
+            const file = files[0];
+            const statusText = document.getElementById('status-text');
+            statusText.innerText = "Reading file...";
+
+            // 1. Read File (Handle CSV or XLSX)
+            // We use SheetJS (XLSX) to read raw data because it handles CSVs better than ExcelJS in browser
+            const dataBuffer = await file.arrayBuffer();
+            const rawWorkbook = XLSX.read(dataBuffer, { type: 'array' });
+            const firstSheetName = rawWorkbook.SheetNames[0];
+            const rawData = XLSX.utils.sheet_to_json(rawWorkbook.Sheets[firstSheetName], { header: 1 });
+
+            // 2. Create new ExcelJS Workbook for Styling (Red text)
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Fixed Menu');
+
+            // Add rows to ExcelJS
+            rawData.forEach(row => {
+                worksheet.addRow(row);
+            });
+
+            // 3. Initialize Gemini
+            const genAI = new GoogleGenerativeAI(apiKey);
+            // FIXED: Used 'gemini-pro' to avoid 404 errors
+            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+            let itemsToFix = [];
+            // Collect string cells
+            worksheet.eachRow((row, rowNum) => {
+                row.eachCell((cell, colNum) => {
+                    // Only check strings that are longer than 3 chars (skip numbers/dates)
+                    if (typeof cell.value === 'string' && cell.value.length > 3) {
+                        itemsToFix.push({ r: rowNum, c: colNum, val: cell.value });
+                    }
+                });
+            });
+
+            let totalFixed = 0;
+
+            // 4. Process Loop
+            for (let i = 0; i < itemsToFix.length; i++) {
+                const item = itemsToFix[i];
+                statusText.innerText = `Fixing ${i+1}/${itemsToFix.length}: "${item.val}"`;
+
+                try {
+                    // CONTEXT AWARE PROMPT
+                    const prompt = `
+                        Act as a Menu Editor. Fix spelling for this food item.
+                        Context: Indian, Chinese, Continental Food.
+                        
+                        1. Fix "Butter Noon" -> "Butter Naan".
+                        2. Fix "Fires" -> "Fries".
+                        3. Fix "cofee" -> "Coffee".
+                        4. Correct capitalization.
+                        
+                        Input: "${item.val}"
+                        Return ONLY corrected text.
+                    `;
+
+                    const result = await model.generateContent(prompt);
+                    const response = await result.response;
+                    const fixed = response.text().trim();
+
+                    // Update if changed
+                    if (fixed && fixed !== item.val) {
+                        const cell = worksheet.getCell(item.r, item.c);
+                        cell.value = { 
+                            richText: [{ text: fixed, font: { color: { argb: "FFFF0000" }, bold: true } }] 
+                        };
+                        totalFixed++;
+                    }
+                } catch(e) {
+                    console.warn("AI Skip:", item.val);
+                    // Add slight delay to avoid rate limit if error occurs
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+
+            // 5. Download as XLSX (Even if input was CSV, output must be XLSX to show Red colors)
+            const outBuffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([outBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            
+            document.getElementById('success-details').innerText = `AI Fixed ${totalFixed} spelling errors!`;
+            window.triggerDownload(blob, "AI_Fixed_Menu.xlsx");
+        }
+    </script>
+
+    <script>
+        let currentTool = null;
+        let globalFileList = []; 
+        let rawDupData = [];
+
+        const tools = {
+            'menu-fixer-ai': { 
+                id: 'menu-fixer-ai', 
+                title: "AI Spelling Fixer", 
+                desc: "Upload Excel/CSV. AI fixes 'Butter Noon' -> 'Naan'.", 
+                accept: ".xlsx, .xls, .csv", 
+                handler: 'ai_handler' 
+            },
+            'pdf-ocr-text': { id: 'pdf-ocr-text', title: "OCR Extractor", desc: "Extract text from scanned PDFs.", accept: ".pdf", handler: convertPdfToTextOCR },
+            'jpg-to-pdf': { id: 'jpg-to-pdf', title: "JPG to PDF", desc: "Combine images into PDF.", accept: "image/*", handler: convertJpgToPdf, multiple: true },
+            'word-to-pdf': { id: 'word-to-pdf', title: "Word to PDF", desc: "Convert DOCX to PDF.", accept: ".docx", handler: convertWordToPdf },
+            'excel-to-pdf': { id: 'excel-to-pdf', title: "Excel to PDF", desc: "Convert Excel to PDF.", accept: ".xlsx, .xls, .csv", handler: convertExcelToPdf },
+            'pdf-to-jpg': { id: 'pdf-to-jpg', title: "PDF to JPG", desc: "Save pages as images.", accept: ".pdf", handler: convertPdfToJpg },
+            'compress-pdf': { id: 'compress-pdf', title: "Compress PDF", desc: "Reduce file size.", accept: ".pdf", handler: compressPDF },
+            'duplicate-remover': { id: 'duplicate-remover', title: "Duplicate Remover", desc: "Find duplicates in Excel.", accept: ".xlsx, .csv", handler: null }
+        };
+
+        function resetToUpload() {
+            document.getElementById('loading-spinner').classList.add('hidden');
+            document.getElementById('drop-area').classList.remove('hidden');
+            document.getElementById('status-area').classList.add('hidden');
+        }
+
+        window.triggerDownload = function(blob, filename) {
+             const btn = document.getElementById('download-btn');
+             document.getElementById('loading-spinner').classList.add('hidden');
+             document.getElementById('success-msg').classList.remove('hidden');
+             document.getElementById('download-btn').style.display = 'flex';
+             btn.onclick = () => saveAs(blob, filename);
+        }
+
+        function loadTool(id) {
+            currentTool = tools[id];
+            if(!currentTool) return;
+            
+            globalFileList = [];
+            document.getElementById('menu-view').classList.add('hidden');
+            document.getElementById('workspace-view').classList.remove('hidden');
+            document.getElementById('tool-title').innerText = currentTool.title;
+            document.getElementById('tool-desc').innerText = currentTool.desc;
+            document.getElementById('file-formats').innerText = "Supports: " + currentTool.accept;
+            
+            const fileInput = document.getElementById('file-input');
+            fileInput.accept = currentTool.accept;
+            if (currentTool.multiple) fileInput.setAttribute('multiple', '');
+            else fileInput.removeAttribute('multiple');
+
+            // UI Resets
+            document.getElementById('api-key-area').classList.toggle('hidden', id !== 'menu-fixer-ai');
+            document.getElementById('status-area').classList.add('hidden');
+            document.getElementById('drop-area').classList.remove('hidden');
+            document.getElementById('preview-area').classList.add('hidden');
+            document.getElementById('dup-options-area').classList.add('hidden');
+            document.getElementById('file-input').value = '';
+        }
+
+        async function handleFile(files) {
+            if (files.length === 0) return;
+            
+            if (currentTool.id === 'jpg-to-pdf') {
+                globalFileList = [...globalFileList, ...Array.from(files)];
+                document.getElementById('preview-area').classList.remove('hidden');
+                return;
+            }
+            if (currentTool.id === 'duplicate-remover') {
+                handleDuplicateFile(files[0]);
+                return;
+            }
+
+            // Start Processing Immediate Tools
+            document.getElementById('drop-area').classList.add('hidden');
+            document.getElementById('status-area').classList.remove('hidden');
+            document.getElementById('loading-spinner').classList.remove('hidden');
+            document.getElementById('status-text').innerText = "Processing...";
+
+            try {
+                if (currentTool.handler === 'ai_handler') {
+                    await window.processMenuFixerAI(files);
+                } else {
+                    await currentTool.handler(files);
+                    if(currentTool.handler !== 'ai_handler') {
+                        document.getElementById('loading-spinner').classList.add('hidden');
+                        document.getElementById('success-msg').classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading-spinner').classList.add('hidden');
+                document.getElementById('error-msg').innerText = "Error: " + err.message;
+                document.getElementById('error-msg').classList.remove('hidden');
+                document.getElementById('drop-area').classList.remove('hidden');
+            }
+        }
+
+        // --- TOOL IMPLEMENTATIONS ---
+
+        async function convertPdfToTextOCR(files) {
+            const file = files[0];
+            const data = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(data).promise;
+            let fullText = "";
+            const worker = Tesseract.createWorker();
+            await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                document.getElementById('status-text').innerText = `OCR Scanning Page ${i}/${pdf.numPages}...`;
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 2.0 });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height; canvas.width = viewport.width;
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                const { data: { text } } = await worker.recognize(canvas.toDataURL('image/png'));
+                fullText += `--- Page ${i} ---\n${text}\n\n`;
+            }
+            await worker.terminate();
+            window.triggerDownload(new Blob([fullText], { type: "text/plain" }), "Extracted_Text.txt");
+        }
+
+        async function convertJpgToPdf(files) {
+            const doc = new window.jspdf.jsPDF();
+            for (let i = 0; i < files.length; i++) {
+                if (!files[i].type.startsWith('image/')) continue;
+                const img = await readImage(files[i]);
+                const pdfW = doc.internal.pageSize.getWidth();
+                const pdfH = doc.internal.pageSize.getHeight();
+                const ratio = Math.min(pdfW / img.width, pdfH / img.height);
+                if (i > 0) doc.addPage();
+                doc.addImage(img.img, 'JPEG', (pdfW - img.width*ratio)/2, (pdfH - img.height*ratio)/2, img.width*ratio, img.height*ratio);
+            }
+            window.triggerDownload(doc.output('blob'), "images.pdf");
+        }
+
+        function readImage(file) {
+            return new Promise(r => {
+                const reader = new FileReader();
+                reader.onload = (e) => { const i = new Image(); i.onload = () => r({img: e.target.result, width: i.width, height: i.height}); i.src = e.target.result; };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function convertWordToPdf(files) {
+            const ab = await files[0].arrayBuffer();
+            const res = await mammoth.convertToHtml({ arrayBuffer: ab });
+            const blob = await html2pdf().from(res.value).output('blob');
+            window.triggerDownload(blob, "converted.pdf");
+        }
+
+        async function convertExcelToPdf(files) {
+            const data = await files[0].arrayBuffer();
+            const wb = XLSX.read(data, {type:'array'});
+            const html = XLSX.utils.sheet_to_html(wb.Sheets[wb.SheetNames[0]]);
+            const blob = await html2pdf().from(html).output('blob');
+            window.triggerDownload(blob, "converted.pdf");
+        }
+
+        async function convertPdfToJpg(files) {
+            const pdf = await pdfjsLib.getDocument(await files[0].arrayBuffer()).promise;
+            const zip = new JSZip();
+            for (let i = 1; i <= pdf.numPages; i++) {
+                document.getElementById('status-text').innerText = `Processing Page ${i}...`;
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                canvas.height = viewport.height; canvas.width = viewport.width;
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                zip.file(`page-${i}.jpg`, canvas.toDataURL('image/jpeg').split(',')[1], {base64: true});
+            }
+            window.triggerDownload(await zip.generateAsync({type:"blob"}), "pages.zip");
+        }
+        
+        async function compressPDF(files) {
+            const pdf = await pdfjsLib.getDocument(await files[0].arrayBuffer()).promise;
+            const doc = new window.jspdf.jsPDF();
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 1.0 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width; canvas.height = viewport.height;
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                if (i > 1) doc.addPage([viewport.width, viewport.height]);
+                doc.addImage(canvas.toDataURL('image/jpeg', 0.5), 'JPEG', 0, 0, viewport.width, viewport.height);
+            }
+            window.triggerDownload(doc.output('blob'), "compressed.pdf");
+        }
+
+        function handleDuplicateFile(file) {
+            const reader = new FileReader();
+            document.getElementById('drop-area').classList.add('hidden');
+            document.getElementById('status-area').classList.remove('hidden');
+            reader.onload = (e) => {
+                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                rawDupData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+                document.getElementById('dup-options-area').classList.remove('hidden');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processDuplicateData(mode) {
+             if(!rawDupData) return;
+             const seen = new Set(); const dupMap = new Map();
+             rawDupData.forEach((row, i) => { const fp = JSON.stringify(row); if(seen.has(fp)) dupMap.set(i, true); else seen.add(fp); });
+             
+             // Use ExcelJS for styling
+             const wb = new ExcelJS.Workbook();
+             const ws = wb.addWorksheet('Duplicates');
+             
+             rawDupData.forEach((row, i) => {
+                 const isDup = dupMap.has(i);
+                 if(mode === 'remove' && isDup) return;
+                 const newRow = ws.addRow(row);
+                 if(isDup) {
+                     newRow.eachCell((cell) => {
+                         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE066' } }; // Yellow
+                     });
+                 }
+             });
+             
+             wb.xlsx.writeBuffer().then(buffer => {
+                 window.triggerDownload(new Blob([buffer]), "Duplicate_Result.xlsx");
+                 document.getElementById('dup-options-area').classList.add('hidden');
+             });
+        }
+    </script>
 </body>
 </html>
