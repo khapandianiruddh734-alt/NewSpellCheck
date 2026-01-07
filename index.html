@@ -1,243 +1,211 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Excel Cleaner Tool</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
-  padding: 20px;
-}
-.container {
-  max-width: 1400px;
-  margin: auto;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-}
-button, select, input {
-  padding: 8px;
-  margin: 5px 0;
-}
-button {
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-button:hover { background: #1e40af; }
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 13px;
-}
-th, td {
-  border: 1px solid #ddd;
-  padding: 6px;
-}
-th { background: #f1f5f9; }
-
-.flex { display: flex; gap: 20px; }
-.half { width: 50%; }
-
-.spellHighlight { background: #d1fae5; } /* green */
-.multiSelect {
-  width: 300px;
-  height: 120px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Achievers | Pro PDF Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        #editor-container { position: relative; display: inline-block; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        #pdf-canvas { display: block; }
+        #edit-layer { position: absolute; top: 0; left: 0; cursor: crosshair; }
+        .toolbar-btn { transition: all 0.2s; }
+        .toolbar-btn:hover { transform: scale(1.05); }
+    </style>
 </head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
 
-<body>
+    <nav class="bg-indigo-700 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">The Achievers <span class="font-normal opacity-80">| PDF Editor</span></h1>
+            <div class="flex gap-4">
+                <button onclick="exportPDF()" class="bg-green-500 hover:bg-green-600 px-6 py-2 rounded-lg font-bold shadow-md">
+                    <i class="fas fa-file-export mr-2"></i> Save & Download
+                </button>
+            </div>
+        </div>
+    </nav>
 
-<div class="container">
-<h2>Excel Cleaner (Simple & Correct)</h2>
+    <div class="flex flex-1 overflow-hidden">
+        <aside class="w-64 bg-white border-r border-gray-200 p-6 flex flex-col gap-6">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">1. Upload File</label>
+                <input type="file" id="upload-pdf" accept="application/pdf" class="hidden">
+                <button onclick="document.getElementById('upload-pdf').click()" class="w-full bg-indigo-50 text-indigo-600 border border-indigo-200 py-3 rounded-xl font-semibold">
+                    <i class="fas fa-upload mr-2"></i> Select PDF
+                </button>
+            </div>
 
-<input type="file" accept=".xlsx,.csv" onchange="handleFile(event)">
-<br><br>
+            <div id="edit-controls" class="hidden space-y-4">
+                <label class="block text-xs font-bold text-gray-400 uppercase">2. Editor Tools</label>
+                
+                <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <p class="text-sm font-semibold mb-2">Add Text</p>
+                    <input type="text" id="text-input" placeholder="Type here..." class="w-full p-2 text-sm border rounded mb-2">
+                    <button onclick="setMode('text')" class="w-full bg-white border py-2 rounded text-sm hover:bg-gray-100">Click to Place Text</button>
+                </div>
 
-<b>Item Name column (for duplicate removal)</b><br>
-<select id="itemColumn"></select>
-<br><br>
+                <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <p class="text-sm font-semibold mb-2">Add Image</p>
+                    <input type="file" id="image-input" accept="image/*" class="hidden">
+                    <button onclick="document.getElementById('image-input').click()" class="w-full bg-white border py-2 rounded text-sm hover:bg-gray-100">Upload Image</button>
+                </div>
+            </div>
+        </aside>
 
-<b>Columns for spell check (Ctrl + Click)</b><br>
-<select id="spellColumns" class="multiSelect" multiple></select>
-<br><br>
+        <main class="flex-1 overflow-auto p-10 flex justify-center bg-gray-200">
+            <div id="editor-container" class="hidden">
+                <canvas id="pdf-canvas"></canvas>
+                <canvas id="edit-layer"></canvas>
+            </div>
+            <div id="placeholder" class="text-gray-400 flex flex-col items-center justify-center">
+                <i class="fas fa-file-pdf text-6xl mb-4"></i>
+                <p>Upload a PDF to start editing</p>
+            </div>
+        </main>
+    </div>
 
-<button onclick="removeDuplicates()">Remove Duplicates</button>
-<button onclick="spellCheck()">Spell Check</button>
-<button onclick="downloadExcel()">Download Cleaned File</button>
+    <script>
+        const { PDFDocument, rgb, StandardFonts } = PDFLib;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-<div class="flex">
-  <div class="half">
-    <h3>Input (Original)</h3>
-    <table id="inputTable"></table>
-  </div>
-  <div class="half">
-    <h3>Output (Cleaned)</h3>
-    <table id="outputTable"></table>
-  </div>
-</div>
-</div>
+        let originalPdfBytes;
+        let pdfDoc;
+        let currentPageNum = 1;
+        let mode = 'none'; // 'text' or 'image'
+        let edits = []; // Stores { type, x, y, value, width, height }
 
-<script>
-let originalData = [];
-let cleanedData = [];
-let headers = [];
-let spellHighlights = new Set();
+        const uploadInput = document.getElementById('upload-pdf');
+        const pdfCanvas = document.getElementById('pdf-canvas');
+        const editLayer = document.getElementById('edit-layer');
+        const layerCtx = editLayer.getContext('2d');
+        const imageInput = document.getElementById('image-input');
 
-/* FOOD DICTIONARY */
-const foodDictionary = {
-  "chiken": "chicken",
-  "coffe": "coffee",
-  "frape": "frappe",
-  "piza": "pizza",
-  "sandwitch": "sandwich",
-  "nudels": "noodles",
-  "biriyani": "biryani"
-};
+        // 1. Handle PDF Upload
+        uploadInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-/* LOAD FILE */
-function handleFile(e) {
-  const reader = new FileReader();
-  reader.onload = evt => {
-    const wb = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
+            originalPdfBytes = await file.arrayBuffer();
+            renderPage(1);
+            
+            document.getElementById('edit-controls').classList.remove('hidden');
+            document.getElementById('placeholder').classList.add('hidden');
+            document.getElementById('editor-container').classList.remove('hidden');
+        });
 
-    originalData = XLSX.utils.sheet_to_json(sheet);
-    cleanedData = JSON.parse(JSON.stringify(originalData));
-    headers = Object.keys(originalData[0]);
+        // 2. Render PDF Page using PDF.js
+        async function renderPage(num) {
+            const loadingTask = pdfjsLib.getDocument({ data: originalPdfBytes });
+            const pdf = await loadingTask.promise;
+            const page = await pdf.getPage(num);
+            
+            const viewport = page.getViewport({ scale: 1.5 });
+            pdfCanvas.height = viewport.height;
+            pdfCanvas.width = viewport.width;
+            editLayer.height = viewport.height;
+            editLayer.width = viewport.width;
 
-    populateSelectors();
-    renderTables();
-  };
-  reader.readAsArrayBuffer(e.target.files[0]);
-}
-
-/* POPULATE SELECTORS */
-function populateSelectors() {
-  const itemSel = document.getElementById("itemColumn");
-  const spellSel = document.getElementById("spellColumns");
-
-  itemSel.innerHTML = "<option value=''>Select Item Name</option>";
-  spellSel.innerHTML = "";
-
-  headers.forEach(h => {
-    itemSel.innerHTML += `<option value="${h}">${h}</option>`;
-    spellSel.innerHTML += `<option value="${h}">${h}</option>`;
-  });
-}
-
-/* RENDER TABLES (PREVIEW ONLY) */
-function renderTables() {
-  renderTable("inputTable", originalData, false);
-  renderTable("outputTable", cleanedData, true);
-}
-
-function renderTable(id, data, isOutput) {
-  const table = document.getElementById(id);
-  table.innerHTML = "";
-
-  const headerRow = document.createElement("tr");
-  headers.forEach(h => {
-    const th = document.createElement("th");
-    th.textContent = h;
-    headerRow.appendChild(th);
-  });
-  table.appendChild(headerRow);
-
-  data.slice(0, 10).forEach((row, i) => {
-    const tr = document.createElement("tr");
-
-    if (isOutput && spellHighlights.has(i)) {
-      tr.classList.add("spellHighlight");
-    }
-
-    headers.forEach(h => {
-      const td = document.createElement("td");
-      td.textContent = row[h];
-      tr.appendChild(td);
-    });
-
-    table.appendChild(tr);
-  });
-}
-
-/* DUPLICATE REMOVER
-   Rule:
-   Same Item Name + Same Price → keep ONE
-*/
-function removeDuplicates() {
-  const nameCol = document.getElementById("itemColumn").value;
-  if (!nameCol) return alert("Select Item Name column");
-
-  const priceCol = "Price"; // must match Excel header
-
-  const seen = new Set();
-  const result = [];
-
-  cleanedData.forEach(row => {
-    const key = `${row[nameCol]?.toLowerCase().trim()}__${row[priceCol]}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(row);
-    }
-  });
-
-  cleanedData = result;
-  renderTables();
-}
-
-/* SPELL CHECK (AUTO, MULTI-COLUMN, FULL SHEET) */
-function spellCheck() {
-  const cols = Array.from(
-    document.getElementById("spellColumns").selectedOptions
-  ).map(o => o.value);
-
-  if (cols.length === 0)
-    return alert("Select at least one column for spell check");
-
-  spellHighlights.clear();
-
-  cleanedData.forEach((row, idx) => {
-    let changed = false;
-
-    cols.forEach(col => {
-      if (!row[col]) return;
-
-      let words = row[col].split(" ");
-      words = words.map(w => {
-        const clean = w.toLowerCase().replace(/[^a-z]/g, "");
-        if (foodDictionary[clean]) {
-          changed = true;
-          return foodDictionary[clean];
+            const renderContext = {
+                canvasContext: pdfCanvas.getContext('2d'),
+                viewport: viewport
+            };
+            await page.render(renderContext).promise;
+            redrawEdits();
         }
-        return w;
-      });
 
-      if (changed) row[col] = words.join(" ");
-    });
+        // 3. Handle Clicks on Canvas
+        editLayer.addEventListener('click', (e) => {
+            const rect = editLayer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
 
-    if (changed) spellHighlights.add(idx);
-  });
+            if (mode === 'text') {
+                const text = document.getElementById('text-input').value || "New Text";
+                edits.push({ type: 'text', x, y, value: text });
+                redrawEdits();
+            }
+        });
 
-  renderTables();
-}
+        function setMode(newMode) {
+            mode = newMode;
+        }
 
-/* DOWNLOAD FULL CLEANED SHEET */
-function downloadExcel() {
-  const ws = XLSX.utils.json_to_sheet(cleanedData);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Cleaned");
-  XLSX.writeFile(wb, "cleaned_data.xlsx");
-}
-</script>
+        imageInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (f) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Place image in center as a starting point
+                    edits.push({ type: 'image', x: 50, y: 50, value: f.target.result, width: 100, height: 100 });
+                    redrawEdits();
+                };
+                img.src = f.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
 
+        function redrawEdits() {
+            layerCtx.clearRect(0, 0, editLayer.width, editLayer.height);
+            edits.forEach(edit => {
+                if (edit.type === 'text') {
+                    layerCtx.font = "20px Arial";
+                    layerCtx.fillStyle = "red";
+                    layerCtx.fillText(edit.value, edit.x, edit.y);
+                } else if (edit.type === 'image') {
+                    const img = new Image();
+                    img.src = edit.value;
+                    layerCtx.drawImage(img, edit.x, edit.y, edit.width, edit.height);
+                }
+            });
+        }
+
+        // 4. Export Final PDF with pdf-lib
+        async function exportPDF() {
+            const pdfDoc = await PDFDocument.load(originalPdfBytes);
+            const pages = pdfDoc.getPages();
+            const firstPage = pages[0];
+            const { width, height } = firstPage.getSize();
+
+            // Coordinate conversion: PDF uses 0,0 at Bottom-Left. Browser uses Top-Left.
+            const scaleX = width / editLayer.width;
+            const scaleY = height / editLayer.height;
+
+            for (const edit of edits) {
+                if (edit.type === 'text') {
+                    firstPage.drawText(edit.value, {
+                        x: edit.x * scaleX,
+                        y: height - (edit.y * scaleY),
+                        size: 20,
+                        color: rgb(1, 0, 0),
+                    });
+                } else if (edit.type === 'image') {
+                    const imageBytes = await fetch(edit.value).then(res => res.arrayBuffer());
+                    let embeddedImg;
+                    if (edit.value.includes('png')) embeddedImg = await pdfDoc.embedPng(imageBytes);
+                    else embeddedImg = await pdfDoc.embedJpg(imageBytes);
+
+                    firstPage.drawImage(embeddedImg, {
+                        x: edit.x * scaleX,
+                        y: height - (edit.y * scaleY) - (edit.height * scaleY),
+                        width: edit.width * scaleX,
+                        height: edit.height * scaleY,
+                    });
+                }
+            }
+
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: "application/pdf" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "edited_achiever.pdf";
+            link.click();
+        }
+    </script>
 </body>
 </html>
