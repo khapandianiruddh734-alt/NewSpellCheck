@@ -12,32 +12,19 @@
     
     <style>
         body { background-color: #f3f4f6; overflow: hidden; height: 100vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif; }
-        
-        /* Main Layout */
         #main-content { flex: 1; display: flex; overflow: hidden; }
-        
-        /* Thumbnail Sidebar */
         #thumbnail-sidebar { width: 140px; background: #ffffff; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 15px; }
         .thumb-page { border: 2px solid #e5e7eb; margin-bottom: 15px; cursor: pointer; border-radius: 6px; background: #f9fafb; position: relative; }
         .thumb-page.active { border-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.2); }
         .thumb-label { font-size: 11px; text-align: center; color: #64748b; padding: 4px; font-weight: 600; }
-
-        /* Workspace */
         #editor-viewport { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; background: #e2e8f0; padding: 40px; }
         #pages-container { transform-origin: top center; transition: transform 0.2s ease; }
         .page-wrapper { position: relative; margin-bottom: 40px; background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
         .canvas-container { position: absolute !important; top: 0; left: 0; }
-
-        /* Toolbars */
         .toolbar-icon-btn { flex-direction: column; display: flex; align-items: center; padding: 8px; border-radius: 6px; transition: all 0.2s; color: #4b5563; }
         .toolbar-icon-btn:hover { background: #f3f4f6; color: #ef4444; }
-
-        /* Formatting Bar */
         #format-bar { background: white; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; padding: 8px 24px; gap: 16px; height: 50px; }
-
-        /* Floating Nav */
         #bottom-nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 10px 24px; border-radius: 99px; display: flex; align-items: center; gap: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 100; }
-        
         .loader-spin { border: 2px solid #f3f3f3; border-top: 2px solid #ef4444; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -46,53 +33,47 @@
 
     <nav class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-50">
         <div class="flex items-center gap-2">
-            <div class="bg-gray-800 text-white px-3 py-1.5 rounded-md flex items-center gap-2 text-xs font-bold mr-4">
-                <i class="fas fa-edit"></i> Annotate
-            </div>
             <button onclick="document.getElementById('upload-pdf').click()" class="toolbar-icon-btn">
-                <i class="fas fa-folder-open"></i><span class="text-[9px] mt-1">Open</span>
+                <i class="fas fa-folder-open"></i><span class="text-[9px] mt-1 uppercase font-bold">Open PDF</span>
             </button>
             <div class="w-px h-6 bg-gray-200 mx-2"></div>
             <button onclick="addText()" class="toolbar-icon-btn">
-                <i class="fas fa-font"></i><span class="text-[9px] mt-1">Text</span>
+                <i class="fas fa-font"></i><span class="text-[9px] mt-1 uppercase font-bold">Add Text</span>
             </button>
             <button onclick="document.getElementById('img-upload').click()" class="toolbar-icon-btn">
-                <i class="fas fa-image"></i><span class="text-[9px] mt-1">Image</span>
+                <i class="fas fa-image"></i><span class="text-[9px] mt-1 uppercase font-bold">Add Image</span>
             </button>
+            <div class="w-px h-6 bg-gray-200 mx-2"></div>
             <button onclick="deleteSelected()" class="toolbar-icon-btn hover:text-red-600">
-                <i class="fas fa-trash"></i><span class="text-[9px] mt-1 text-red-500">Delete</span>
+                <i class="fas fa-trash"></i><span class="text-[9px] mt-1 text-red-500 uppercase font-bold">Delete</span>
             </button>
         </div>
 
         <div class="flex items-center gap-4">
-            <span class="text-sm font-bold text-gray-700">The Achievers Editor</span>
-            <button onclick="exportFinalPDF()" id="export-btn" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-full text-xs font-black shadow-lg transition">
+            <span class="text-sm font-bold text-gray-800">The <span class="text-red-500">Achievers</span> Editor</span>
+            <button onclick="exportFinalPDF()" id="export-btn" class="bg-red-500 hover:bg-red-600 text-white px-8 py-2.5 rounded-full text-[10px] font-black shadow-lg transition tracking-widest">
                 EXPORT PDF <i class="fas fa-arrow-right ml-2"></i>
             </button>
         </div>
     </nav>
 
     <div id="format-bar">
-        <select id="font-family" class="border rounded px-2 py-1 text-xs outline-none bg-gray-50">
+        <select id="font-family" class="border rounded px-2 py-1 text-xs outline-none bg-gray-50 font-medium">
             <option value="Arial">Arial</option>
             <option value="Helvetica">Helvetica</option>
             <option value="Times New Roman">Times New Roman</option>
             <option value="Courier">Courier</option>
         </select>
-        <select id="font-size" class="border rounded px-2 py-1 text-xs outline-none bg-gray-50">
-            <option value="12">12</option>
-            <option value="18">18</option>
-            <option value="24" selected>24</option>
-            <option value="36">36</option>
-            <option value="48">48</option>
+        <select id="font-size" class="border rounded px-2 py-1 text-xs outline-none bg-gray-50 font-medium">
+            <option value="12">12 px</option>
+            <option value="18">18 px</option>
+            <option value="24" selected>24 px</option>
+            <option value="36">36 px</option>
+            <option value="48">48 px</option>
         </select>
         <div class="flex border rounded overflow-hidden">
-            <button class="px-3 py-1 text-xs bg-white hover:bg-gray-100 border-r"><b>B</b></button>
-            <button class="px-3 py-1 text-xs bg-white hover:bg-gray-100 border-r"><i>I</i></button>
-            <button class="px-3 py-1 text-xs bg-white hover:bg-gray-100"><u>U</u></button>
-        </div>
-        <div class="flex items-center gap-2 ml-auto text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-            Format Options <i class="fas fa-cog"></i>
+            <button onclick="toggleStyle('bold')" class="px-3 py-1 text-xs bg-white hover:bg-gray-100 border-r transition"><b>B</b></button>
+            <button onclick="toggleStyle('italic')" class="px-3 py-1 text-xs bg-white hover:bg-gray-100 transition"><i>I</i></button>
         </div>
     </div>
 
@@ -105,7 +86,7 @@
             <div id="pages-container">
                 <div id="welcome-screen" class="mt-40 text-center text-gray-400">
                     <i class="fas fa-file-pdf text-6xl mb-4 opacity-10"></i>
-                    <p class="text-sm">Load a PDF file to view and edit all pages</p>
+                    <p class="text-sm">Click <b>Open PDF</b> to load your document</p>
                 </div>
             </div>
         </main>
@@ -118,9 +99,8 @@
         
         <div class="w-px h-4 bg-gray-700"></div>
         
-        <button onclick="adjustZoom(-0.1)" class="hover:text-red-400 transition"><i class="fas fa-minus-circle"></i></button>
-        <span id="zoom-label" class="text-[11px] font-black min-w-[40px] text-center">100%</span>
-        <button onclick="adjustZoom(0.1)" class="hover:text-red-400 transition"><i class="fas fa-plus-circle"></i></button>
+        <button onclick="adjustZoom(-0.1)" class="hover:text-red-400 transition"><i class="fas fa-search-minus"></i></button>
+        <button onclick="adjustZoom(0.1)" class="hover:text-red-400 transition"><i class="fas fa-search-plus"></i></button>
     </div>
 
     <input type="file" id="upload-pdf" accept="application/pdf" class="hidden">
@@ -135,90 +115,59 @@
         let activePage = 0;
         let scaleZoom = 1.0;
 
-        // --- 1. Load PDF & Render ---
         document.getElementById('upload-pdf').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
             originalPdfBytes = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(originalPdfBytes) }).promise;
-            
             const container = document.getElementById('pages-container');
             const thumbList = document.getElementById('thumbs-list');
-            container.innerHTML = '';
-            thumbList.innerHTML = '';
-            fabricCanvases = [];
+            container.innerHTML = ''; thumbList.innerHTML = ''; fabricCanvases = [];
 
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const viewport = page.getViewport({ scale: 1.5 });
-
                 const wrapper = document.createElement('div');
                 wrapper.className = 'page-wrapper';
                 wrapper.id = `page-wrap-${i-1}`;
                 wrapper.style.width = `${viewport.width}px`;
                 wrapper.style.height = `${viewport.height}px`;
-
                 const bg = document.createElement('canvas');
-                bg.width = viewport.width;
-                bg.height = viewport.height;
-                
+                bg.width = viewport.width; bg.height = viewport.height;
                 const fg = document.createElement('canvas');
                 fg.id = `fg-${i}`;
-
-                wrapper.appendChild(bg);
-                wrapper.appendChild(fg);
-                container.appendChild(wrapper);
-
+                wrapper.appendChild(bg); wrapper.appendChild(fg); container.appendChild(wrapper);
                 await page.render({ canvasContext: bg.getContext('2d'), viewport }).promise;
-
-                const fCanvas = new fabric.Canvas(`fg-${i}`, {
-                    width: viewport.width,
-                    height: viewport.height,
-                });
+                const fCanvas = new fabric.Canvas(`fg-${i}`, { width: viewport.width, height: viewport.height });
                 fabricCanvases.push(fCanvas);
-
-                // Thumbnail Generation
                 const thumbItem = document.createElement('div');
                 thumbItem.className = `thumb-page ${i===1?'active':''}`;
                 thumbItem.onclick = () => jumpToPage(i-1);
-                
                 const tCanvas = document.createElement('canvas');
                 const tCtx = tCanvas.getContext('2d');
                 const tView = page.getViewport({ scale: 0.15 });
-                tCanvas.width = tView.width;
-                tCanvas.height = tView.height;
+                tCanvas.width = tView.width; tCanvas.height = tView.height;
                 await page.render({ canvasContext: tCtx, viewport: tView }).promise;
-                
                 thumbItem.appendChild(tCanvas);
                 const lbl = document.createElement('div');
-                lbl.className = 'thumb-label';
-                lbl.innerText = i;
-                thumbItem.appendChild(lbl);
-                thumbList.appendChild(thumbItem);
+                lbl.className = 'thumb-label'; lbl.innerText = i;
+                thumbItem.appendChild(lbl); thumbList.appendChild(thumbItem);
             }
             refreshStatus();
         });
 
-        // --- 2. Zoom & Nav Control ---
         function adjustZoom(val) {
             scaleZoom = Math.min(Math.max(0.4, scaleZoom + val), 2.0);
             document.getElementById('pages-container').style.transform = `scale(${scaleZoom})`;
-            document.getElementById('zoom-label').innerText = `${Math.round(scaleZoom * 100)}%`;
         }
-
         function jumpToPage(idx) {
-            const target = document.getElementById(`page-wrap-${idx}`);
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            activePage = idx;
-            refreshStatus();
+            document.getElementById(`page-wrap-${idx}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+            activePage = idx; refreshStatus();
         }
-
         function changePage(dir) {
             const n = activePage + dir;
             if (n >= 0 && n < fabricCanvases.length) jumpToPage(n);
         }
-
         document.getElementById('editor-viewport').addEventListener('scroll', () => {
             const wraps = document.querySelectorAll('.page-wrapper');
             wraps.forEach((w, idx) => {
@@ -226,96 +175,69 @@
                 if (r.top < window.innerHeight / 2 && r.bottom > window.innerHeight / 2) {
                     activePage = idx;
                     document.querySelectorAll('.thumb-page').forEach((t, i) => {
-                        if(i === idx) t.classList.add('active');
-                        else t.classList.remove('active');
+                        i === idx ? t.classList.add('active') : t.classList.remove('active');
                     });
                 }
             });
             refreshStatus();
         });
-
         function refreshStatus() {
             document.getElementById('page-info').innerText = `PAGE ${activePage + 1} / ${fabricCanvases.length || 0}`;
         }
-
-        // --- 3. Tools ---
         function addText() {
             const canvas = fabricCanvases[activePage];
             if(!canvas) return;
-
-            const fFamily = document.getElementById('font-family').value;
-            const fSize = parseInt(document.getElementById('font-size').value);
-
             const text = new fabric.IText("Double click to edit", {
-                left: 100,
-                top: 100,
-                fontFamily: fFamily,
-                fontSize: fSize,
-                fill: '#ef4444', // Red default
-                fontWeight: 'bold'
+                left: 150, top: 150,
+                fontFamily: document.getElementById('font-family').value,
+                fontSize: parseInt(document.getElementById('font-size').value),
+                fill: '#ef4444', fontWeight: 'bold'
             });
             canvas.add(text).setActiveObject(text);
         }
-
         function processImage(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    fabric.Image.fromURL(e.target.result, (img) => {
-                        img.scaleToWidth(200);
-                        fabricCanvases[activePage].add(img).setActiveObject(img);
-                    });
-                }
+                reader.onload = (e) => fabric.Image.fromURL(e.target.result, (img) => {
+                    img.scaleToWidth(250); fabricCanvases[activePage].add(img).setActiveObject(img);
+                });
                 reader.readAsDataURL(input.files[0]);
             }
         }
-
         function deleteSelected() {
             const c = fabricCanvases[activePage];
             if(c && c.getActiveObject()) c.remove(c.getActiveObject());
         }
-
-        // --- 4. Export (Fixed Logic) ---
+        function toggleStyle(style) {
+            const activeObject = fabricCanvases[activePage].getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') return;
+            if (style === 'bold') activeObject.set('fontWeight', activeObject.fontWeight === 'bold' ? 'normal' : 'bold');
+            else if (style === 'italic') activeObject.set('fontStyle', activeObject.fontStyle === 'italic' ? 'normal' : 'italic');
+            fabricCanvases[activePage].renderAll();
+        }
         async function exportFinalPDF() {
             const btn = document.getElementById('export-btn');
-            btn.innerHTML = `<span class="loader-spin mr-2"></span> SAVING...`;
-            btn.disabled = true;
-
+            btn.innerHTML = `<span class="loader-spin mr-2"></span> EXPORTING...`; btn.disabled = true;
             try {
                 const pdfDoc = await PDFDocument.load(originalPdfBytes);
                 const pages = pdfDoc.getPages();
-
                 for (let i = 0; i < fabricCanvases.length; i++) {
                     const canvas = fabricCanvases[i];
                     if (canvas.getObjects().length === 0) continue;
-
                     const pdfPage = pages[i];
                     const { width, height } = pdfPage.getSize();
-                    
                     const dataURL = canvas.toDataURL({ format: 'png', multiplier: 2 });
                     const imageBytes = await fetch(dataURL).then(res => res.arrayBuffer());
                     const pngImage = await pdfDoc.embedPng(imageBytes);
-
-                    pdfPage.drawImage(pngImage, {
-                        x: 0,
-                        y: 0,
-                        width: width,
-                        height: height,
-                    });
+                    pdfPage.drawImage(pngImage, { x: 0, y: 0, width: width, height: height });
                 }
-
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: "application/pdf" });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = "Edited_Document.pdf";
-                link.click();
-            } catch (err) {
-                alert("Error during export. Please check console.");
-            } finally {
-                btn.innerHTML = `EXPORT PDF <i class="fas fa-arrow-right ml-2"></i>`;
-                btn.disabled = false;
-            }
+                link.download = "Edited_Document.pdf"; link.click();
+            } catch (err) { alert("Error saving."); }
+            finally { btn.innerHTML = `EXPORT PDF <i class="fas fa-arrow-right ml-2"></i>`; btn.disabled = false; }
         }
     </script>
 </body>
