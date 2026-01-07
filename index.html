@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Achievers | Edit PDF</title>
+    <title>The Achievers | Pro PDF Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -11,50 +11,49 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        body { background-color: #f3f4f6; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        body { background-color: #f3f4f6; overflow: hidden; height: 100vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif; }
         #main-content { flex: 1; display: flex; overflow: hidden; }
         
         /* Thumbnails Sidebar */
-        #thumbnail-sidebar { width: 120px; background: #ffffff; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 10px; }
-        .thumb-page { border: 2px solid #e5e7eb; margin-bottom: 10px; cursor: pointer; border-radius: 4px; overflow: hidden; }
-        .thumb-page.active { border-color: #4f46e5; box-shadow: 0 0 5px rgba(79, 70, 229, 0.5); }
-        .thumb-label { font-size: 10px; text-align: center; color: #6b7280; padding: 2px; }
+        #thumbnail-sidebar { width: 140px; background: #ffffff; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 15px; }
+        .thumb-page { border: 2px solid #e5e7eb; margin-bottom: 15px; cursor: pointer; border-radius: 6px; transition: all 0.2s; background: #f9fafb; }
+        .thumb-page:hover { border-color: #cbd5e1; }
+        .thumb-page.active { border-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
+        .thumb-label { font-size: 11px; text-align: center; color: #64748b; padding: 4px; font-weight: 600; }
 
         /* Workspace */
-        #editor-viewport { flex: 1; overflow-y: auto; display: flex; flex-direction: column; align-items: center; padding: 40px 0; background: #e5e7eb; scroll-behavior: smooth; }
-        .page-wrapper { position: relative; margin-bottom: 40px; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        #editor-viewport { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; background: #cbd5e1; padding: 50px; scroll-behavior: smooth; }
+        .page-wrapper { position: relative; margin-bottom: 50px; background: white; box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: transform 0.2s; }
         .canvas-container { position: absolute !important; top: 0; left: 0; }
 
-        /* Right Sidebar Info */
-        #right-sidebar { width: 250px; background: #ffffff; border-left: 1px solid #e5e7eb; padding: 20px; }
+        /* Right Sidebar */
+        #right-sidebar { width: 280px; background: #ffffff; border-left: 1px solid #e5e7eb; padding: 25px; }
 
-        /* Floating Bottom Bar */
-        #bottom-toolbar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #374151; color: white; padding: 8px 16px; border-radius: 8px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 100; }
+        /* Bottom Toolbar */
+        #bottom-toolbar { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 10px 24px; border-radius: 99px; display: flex; align-items: center; gap: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4); z-index: 100; }
         
-        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #4f46e5; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; }
+        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #ef4444; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <nav class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-50">
+    <nav class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-50">
         <div class="flex items-center gap-6">
-            <button onclick="document.getElementById('upload-pdf').click()" class="text-sm font-medium px-3 py-1.5 border rounded hover:bg-gray-50 flex items-center gap-2">
-                <i class="fas fa-file-pdf text-red-500"></i> Open File
+            <button onclick="document.getElementById('upload-pdf').click()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition flex items-center gap-2">
+                <i class="fas fa-folder-open text-amber-500"></i> Open PDF
             </button>
-            <div class="h-6 w-px bg-gray-300"></div>
-            <div class="flex items-center gap-4 text-gray-600">
-                <button onclick="addText()" class="hover:text-indigo-600 flex flex-col items-center"><i class="fas fa-font"></i><span class="text-[10px]">Text</span></button>
-                <button onclick="document.getElementById('img-upload').click()" class="hover:text-indigo-600 flex flex-col items-center"><i class="fas fa-image"></i><span class="text-[10px]">Image</span></button>
-                <button onclick="deleteSelected()" class="hover:text-red-600 flex flex-col items-center"><i class="fas fa-trash"></i><span class="text-[10px]">Delete</span></button>
+            <div class="h-6 w-px bg-gray-200"></div>
+            <div class="flex items-center gap-5 text-gray-500">
+                <button onclick="addText()" class="hover:text-red-500 transition flex flex-col items-center"><i class="fas fa-font text-lg"></i><span class="text-[10px] mt-1">Text</span></button>
+                <button onclick="document.getElementById('img-upload').click()" class="hover:text-red-500 transition flex flex-col items-center"><i class="fas fa-image text-lg"></i><span class="text-[10px] mt-1">Image</span></button>
+                <button onclick="deleteSelected()" class="hover:text-red-700 transition flex flex-col items-center"><i class="fas fa-eraser text-lg"></i><span class="text-[10px] mt-1">Delete</span></button>
             </div>
         </div>
-        <div class="flex items-center gap-4">
-            <h1 class="text-lg font-bold text-gray-800">Edit PDF</h1>
-            <button onclick="exportFinalPDF()" id="save-btn" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-                Export PDF <i class="fas fa-arrow-right"></i>
-            </button>
-        </div>
+        
+        <button onclick="exportFinalPDF()" id="save-btn" class="bg-red-600 hover:bg-red-700 text-white px-8 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-red-200 transition flex items-center gap-2">
+            Export PDF <i class="fas fa-file-export"></i>
+        </button>
     </nav>
 
     <div id="main-content">
@@ -63,37 +62,40 @@
         </aside>
 
         <main id="editor-viewport">
-            <div id="pages-container" class="flex flex-col items-center">
-                <div class="text-gray-400 mt-20 text-center">
-                    <i class="fas fa-cloud-upload-alt text-5xl mb-4"></i>
-                    <p>Load a PDF to see all pages</p>
+            <div id="pages-container">
+                <div class="text-gray-400 mt-32 text-center">
+                    <i class="fas fa-file-upload text-6xl mb-6 opacity-20"></i>
+                    <p class="font-medium">Upload a document to begin editing</p>
                 </div>
             </div>
         </main>
 
         <aside id="right-sidebar">
-            <div class="bg-blue-50 border border-blue-100 p-4 rounded-lg">
-                <h4 class="text-xs font-bold text-blue-800 uppercase mb-2">Instructions</h4>
-                <p class="text-xs text-blue-600 leading-relaxed">
-                    Use the toolbar to modify or add text, upload images, and annotate with ease. Click any element to resize or delete.
-                </p>
+            <div class="bg-indigo-50 border border-indigo-100 p-5 rounded-2xl mb-8">
+                <h4 class="text-xs font-bold text-indigo-800 uppercase tracking-widest mb-3">Quick Guide</h4>
+                <ul class="text-[11px] text-indigo-700 space-y-2">
+                    <li><i class="fas fa-check mr-2"></i> Click <b>Text</b> to add red annotations.</li>
+                    <li><i class="fas fa-check mr-2"></i> Use <b>Image</b> to upload logos/stamps.</li>
+                    <li><i class="fas fa-check mr-2"></i> Click any object to <b>Scale</b> or <b>Rotate</b>.</li>
+                </ul>
             </div>
-            <div class="mt-8">
-                <label class="text-[10px] font-bold text-gray-400 uppercase">Text Value</label>
-                <input type="text" id="text-input" placeholder="Enter text..." class="w-full mt-1 p-2 text-sm border rounded focus:ring-1 ring-red-400 outline-none">
-                <p class="text-[10px] text-gray-400 mt-1 italic">Text will be added in <span class="text-red-500">Red</span> by default.</p>
-            </div>
+            
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Text Content</label>
+            <textarea id="text-input" rows="3" class="w-full mt-2 p-3 text-sm border border-gray-200 rounded-xl focus:ring-2 ring-red-500 outline-none transition" placeholder="Enter text to add..."></textarea>
+            <p class="text-[10px] text-gray-400 mt-2 italic">* New text is added in <span class="text-red-500 font-bold">RED</span></p>
         </aside>
     </div>
 
     <div id="bottom-toolbar">
-        <button onclick="changePage(-1)"><i class="fas fa-chevron-up"></i></button>
-        <span id="page-num-indicator" class="bg-gray-600 px-3 py-0.5 rounded text-sm">1 / 1</span>
-        <button onclick="changePage(1)"><i class="fas fa-chevron-down"></i></button>
-        <div class="w-px h-4 bg-gray-500"></div>
-        <button><i class="fas fa-minus"></i></button>
-        <span class="text-sm">100%</span>
-        <button><i class="fas fa-plus"></i></button>
+        <button onclick="changePage(-1)" class="hover:text-red-400"><i class="fas fa-chevron-left"></i></button>
+        <span id="page-num-indicator" class="text-xs font-bold min-w-[60px] text-center">Page 0 / 0</span>
+        <button onclick="changePage(1)" class="hover:text-red-400"><i class="fas fa-chevron-right"></i></button>
+        
+        <div class="w-px h-4 bg-gray-600"></div>
+        
+        <button onclick="updateZoom(-0.1)" class="hover:text-red-400"><i class="fas fa-search-minus"></i></button>
+        <span id="zoom-level" class="text-xs font-bold min-w-[40px] text-center">100%</span>
+        <button onclick="updateZoom(0.1)" class="hover:text-red-400"><i class="fas fa-search-plus"></i></button>
     </div>
 
     <input type="file" id="upload-pdf" accept="application/pdf" class="hidden">
@@ -106,8 +108,9 @@
         let originalPdfBytes;
         let fabricCanvases = []; 
         let activePageIndex = 0;
+        let currentZoom = 1.0;
 
-        // 1. Loading and Rendering
+        // --- PDF Loading ---
         document.getElementById('upload-pdf').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -125,7 +128,6 @@
                 const page = await pdf.getPage(i);
                 const viewport = page.getViewport({ scale: 1.5 });
 
-                // Create Page Wrapper
                 const wrapper = document.createElement('div');
                 wrapper.className = 'page-wrapper';
                 wrapper.id = `wrapper-${i-1}`;
@@ -143,10 +145,8 @@
                 wrapper.appendChild(fgCanvas);
                 container.appendChild(wrapper);
 
-                // Render Background PDF
                 await page.render({ canvasContext: bgCanvas.getContext('2d'), viewport }).promise;
 
-                // Init Fabric Overlay
                 const fCanvas = new fabric.Canvas(`fabric-${i}`, {
                     width: viewport.width,
                     height: viewport.height,
@@ -168,19 +168,33 @@
                 thumb.appendChild(thumbCanvas);
                 const label = document.createElement('div');
                 label.className = 'thumb-label';
-                label.innerText = i;
+                label.innerText = `PAGE ${i}`;
                 thumb.appendChild(label);
                 thumbList.appendChild(thumb);
             }
-            updateIndicators();
+            updateUI();
         });
 
-        // 2. Navigation
+        // --- Zoom & Navigation Logic ---
+        function updateZoom(delta) {
+            currentZoom = Math.min(Math.max(0.5, currentZoom + delta), 2.0);
+            document.getElementById('pages-container').style.transform = `scale(${currentZoom})`;
+            document.getElementById('pages-container').style.transformOrigin = 'top center';
+            document.getElementById('zoom-level').innerText = `${Math.round(currentZoom * 100)}%`;
+        }
+
+        function changePage(dir) {
+            const next = activePageIndex + dir;
+            if (next >= 0 && next < fabricCanvases.length) {
+                scrollToPage(next);
+            }
+        }
+
         function scrollToPage(idx) {
             const target = document.getElementById(`wrapper-${idx}`);
-            target.scrollIntoView({ behavior: 'smooth' });
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             activePageIndex = idx;
-            updateIndicators();
+            updateUI();
         }
 
         document.getElementById('editor-viewport').addEventListener('scroll', () => {
@@ -189,20 +203,23 @@
                 const rect = w.getBoundingClientRect();
                 if (rect.top < window.innerHeight / 2 && rect.bottom > window.innerHeight / 2) {
                     activePageIndex = idx;
-                    document.querySelectorAll('.thumb-page').forEach(t => t.classList.remove('active'));
-                    document.getElementById('thumbs-list').children[idx].classList.add('active');
                 }
             });
-            updateIndicators();
+            updateUI();
         });
 
-        function updateIndicators() {
-            document.getElementById('page-num-indicator').innerText = `${activePageIndex + 1} / ${fabricCanvases.length || 1}`;
+        function updateUI() {
+            document.getElementById('page-num-indicator').innerText = `Page ${activePageIndex + 1} / ${fabricCanvases.length}`;
+            const thumbs = document.querySelectorAll('.thumb-page');
+            thumbs.forEach((t, i) => {
+                if(i === activePageIndex) t.classList.add('active');
+                else t.classList.remove('active');
+            });
         }
 
-        // 3. Tools (Always use Red Text)
+        // --- Tools ---
         function addText() {
-            const val = document.getElementById('text-input').value || "Edit Text";
+            const val = document.getElementById('text-input').value || "RED TEXT";
             const canvas = fabricCanvases[activePageIndex];
             if(!canvas) return;
 
@@ -210,9 +227,11 @@
                 left: 100,
                 top: 100,
                 fontFamily: 'Arial',
-                fontSize: 24,
-                fill: '#ef4444', // Red text as requested
-                fontWeight: 'bold'
+                fontSize: 28,
+                fill: '#ef4444', // Red
+                fontWeight: 'bold',
+                cornerColor: '#ef4444',
+                transparentCorners: false
             });
             canvas.add(text).setActiveObject(text);
         }
@@ -237,7 +256,7 @@
             }
         }
 
-        // 4. Working Export Logic
+        // --- Working Export PDF ---
         async function exportFinalPDF() {
             const btn = document.getElementById('save-btn');
             btn.innerHTML = `<span class="loader"></span> Saving...`;
@@ -254,7 +273,7 @@
                     const pdfPage = pages[i];
                     const { width, height } = pdfPage.getSize();
                     
-                    // High quality merge (multiplier 2)
+                    // Multiplier 2 ensures the edits are high resolution
                     const dataURL = canvas.toDataURL({ format: 'png', multiplier: 2 });
                     const imageBytes = await fetch(dataURL).then(res => res.arrayBuffer());
                     const pngImage = await pdfDoc.embedPng(imageBytes);
@@ -271,13 +290,13 @@
                 const blob = new Blob([pdfBytes], { type: "application/pdf" });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = "Edited_Menu.pdf";
+                link.download = "Edited_By_Achievers.pdf";
                 link.click();
             } catch (err) {
-                console.error(err);
-                alert("Error saving PDF. Check console.");
+                console.error("Save Error:", err);
+                alert("Could not export. Check file size or console.");
             } finally {
-                btn.innerHTML = `Export PDF <i class="fas fa-arrow-right"></i>`;
+                btn.innerHTML = `Export PDF <i class="fas fa-file-export"></i>`;
                 btn.disabled = false;
             }
         }
