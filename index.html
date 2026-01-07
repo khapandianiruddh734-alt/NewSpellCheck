@@ -12,49 +12,89 @@
     
     <style>
         body { background-color: #f3f4f6; overflow: hidden; height: 100vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif; }
+        
+        /* Main Layout */
         #main-content { flex: 1; display: flex; overflow: hidden; }
         
-        /* Thumbnails Sidebar */
+        /* Thumbnail Sidebar */
         #thumbnail-sidebar { width: 140px; background: #ffffff; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 15px; }
-        .thumb-page { border: 2px solid #e5e7eb; margin-bottom: 15px; cursor: pointer; border-radius: 6px; transition: all 0.2s; background: #f9fafb; }
-        .thumb-page:hover { border-color: #cbd5e1; }
-        .thumb-page.active { border-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
+        .thumb-page { border: 2px solid #e5e7eb; margin-bottom: 15px; cursor: pointer; border-radius: 6px; background: #f9fafb; position: relative; }
+        .thumb-page.active { border-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.2); }
         .thumb-label { font-size: 11px; text-align: center; color: #64748b; padding: 4px; font-weight: 600; }
 
         /* Workspace */
-        #editor-viewport { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; background: #cbd5e1; padding: 50px; scroll-behavior: smooth; }
-        .page-wrapper { position: relative; margin-bottom: 50px; background: white; box-shadow: 0 10px 25px rgba(0,0,0,0.15); transition: transform 0.2s; }
+        #editor-viewport { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; background: #e2e8f0; padding: 40px; }
+        #pages-container { transform-origin: top center; transition: transform 0.2s ease; }
+        .page-wrapper { position: relative; margin-bottom: 40px; background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
         .canvas-container { position: absolute !important; top: 0; left: 0; }
 
-        /* Right Sidebar */
-        #right-sidebar { width: 280px; background: #ffffff; border-left: 1px solid #e5e7eb; padding: 25px; }
+        /* Toolbars */
+        .toolbar-icon-btn { flex-direction: column; display: flex; align-items: center; padding: 8px; border-radius: 6px; transition: all 0.2s; color: #4b5563; }
+        .toolbar-icon-btn:hover { background: #f3f4f6; color: #ef4444; }
 
-        /* Bottom Toolbar */
-        #bottom-toolbar { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 10px 24px; border-radius: 99px; display: flex; align-items: center; gap: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4); z-index: 100; }
+        /* Formatting Bar */
+        #format-bar { background: white; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; padding: 8px 24px; gap: 16px; height: 50px; }
+
+        /* Floating Nav */
+        #bottom-nav { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 10px 24px; border-radius: 99px; display: flex; align-items: center; gap: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 100; }
         
-        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #ef4444; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; }
+        .loader-spin { border: 2px solid #f3f3f3; border-top: 2px solid #ef4444; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <nav class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-50">
-        <div class="flex items-center gap-6">
-            <button onclick="document.getElementById('upload-pdf').click()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition flex items-center gap-2">
-                <i class="fas fa-folder-open text-amber-500"></i> Open PDF
-            </button>
-            <div class="h-6 w-px bg-gray-200"></div>
-            <div class="flex items-center gap-5 text-gray-500">
-                <button onclick="addText()" class="hover:text-red-500 transition flex flex-col items-center"><i class="fas fa-font text-lg"></i><span class="text-[10px] mt-1">Text</span></button>
-                <button onclick="document.getElementById('img-upload').click()" class="hover:text-red-500 transition flex flex-col items-center"><i class="fas fa-image text-lg"></i><span class="text-[10px] mt-1">Image</span></button>
-                <button onclick="deleteSelected()" class="hover:text-red-700 transition flex flex-col items-center"><i class="fas fa-eraser text-lg"></i><span class="text-[10px] mt-1">Delete</span></button>
+    <nav class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-50">
+        <div class="flex items-center gap-2">
+            <div class="bg-gray-800 text-white px-3 py-1.5 rounded-md flex items-center gap-2 text-xs font-bold mr-4">
+                <i class="fas fa-edit"></i> Annotate
             </div>
+            <button onclick="document.getElementById('upload-pdf').click()" class="toolbar-icon-btn">
+                <i class="fas fa-folder-open"></i><span class="text-[9px] mt-1">Open</span>
+            </button>
+            <div class="w-px h-6 bg-gray-200 mx-2"></div>
+            <button onclick="addText()" class="toolbar-icon-btn">
+                <i class="fas fa-font"></i><span class="text-[9px] mt-1">Text</span>
+            </button>
+            <button onclick="document.getElementById('img-upload').click()" class="toolbar-icon-btn">
+                <i class="fas fa-image"></i><span class="text-[9px] mt-1">Image</span>
+            </button>
+            <button onclick="deleteSelected()" class="toolbar-icon-btn hover:text-red-600">
+                <i class="fas fa-trash"></i><span class="text-[9px] mt-1 text-red-500">Delete</span>
+            </button>
         </div>
-        
-        <button onclick="exportFinalPDF()" id="save-btn" class="bg-red-600 hover:bg-red-700 text-white px-8 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-red-200 transition flex items-center gap-2">
-            Export PDF <i class="fas fa-file-export"></i>
-        </button>
+
+        <div class="flex items-center gap-4">
+            <span class="text-sm font-bold text-gray-700">The Achievers Editor</span>
+            <button onclick="exportFinalPDF()" id="export-btn" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-full text-xs font-black shadow-lg transition">
+                EXPORT PDF <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
     </nav>
+
+    <div id="format-bar">
+        <select id="font-family" class="border rounded px-2 py-1 text-xs outline-none bg-gray-50">
+            <option value="Arial">Arial</option>
+            <option value="Helvetica">Helvetica</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Courier">Courier</option>
+        </select>
+        <select id="font-size" class="border rounded px-2 py-1 text-xs outline-none bg-gray-50">
+            <option value="12">12</option>
+            <option value="18">18</option>
+            <option value="24" selected>24</option>
+            <option value="36">36</option>
+            <option value="48">48</option>
+        </select>
+        <div class="flex border rounded overflow-hidden">
+            <button class="px-3 py-1 text-xs bg-white hover:bg-gray-100 border-r"><b>B</b></button>
+            <button class="px-3 py-1 text-xs bg-white hover:bg-gray-100 border-r"><i>I</i></button>
+            <button class="px-3 py-1 text-xs bg-white hover:bg-gray-100"><u>U</u></button>
+        </div>
+        <div class="flex items-center gap-2 ml-auto text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+            Format Options <i class="fas fa-cog"></i>
+        </div>
+    </div>
 
     <div id="main-content">
         <aside id="thumbnail-sidebar">
@@ -63,43 +103,28 @@
 
         <main id="editor-viewport">
             <div id="pages-container">
-                <div class="text-gray-400 mt-32 text-center">
-                    <i class="fas fa-file-upload text-6xl mb-6 opacity-20"></i>
-                    <p class="font-medium">Upload a document to begin editing</p>
+                <div id="welcome-screen" class="mt-40 text-center text-gray-400">
+                    <i class="fas fa-file-pdf text-6xl mb-4 opacity-10"></i>
+                    <p class="text-sm">Load a PDF file to view and edit all pages</p>
                 </div>
             </div>
         </main>
-
-        <aside id="right-sidebar">
-            <div class="bg-indigo-50 border border-indigo-100 p-5 rounded-2xl mb-8">
-                <h4 class="text-xs font-bold text-indigo-800 uppercase tracking-widest mb-3">Quick Guide</h4>
-                <ul class="text-[11px] text-indigo-700 space-y-2">
-                    <li><i class="fas fa-check mr-2"></i> Click <b>Text</b> to add red annotations.</li>
-                    <li><i class="fas fa-check mr-2"></i> Use <b>Image</b> to upload logos/stamps.</li>
-                    <li><i class="fas fa-check mr-2"></i> Click any object to <b>Scale</b> or <b>Rotate</b>.</li>
-                </ul>
-            </div>
-            
-            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Text Content</label>
-            <textarea id="text-input" rows="3" class="w-full mt-2 p-3 text-sm border border-gray-200 rounded-xl focus:ring-2 ring-red-500 outline-none transition" placeholder="Enter text to add..."></textarea>
-            <p class="text-[10px] text-gray-400 mt-2 italic">* New text is added in <span class="text-red-500 font-bold">RED</span></p>
-        </aside>
     </div>
 
-    <div id="bottom-toolbar">
-        <button onclick="changePage(-1)" class="hover:text-red-400"><i class="fas fa-chevron-left"></i></button>
-        <span id="page-num-indicator" class="text-xs font-bold min-w-[60px] text-center">Page 0 / 0</span>
-        <button onclick="changePage(1)" class="hover:text-red-400"><i class="fas fa-chevron-right"></i></button>
+    <div id="bottom-nav">
+        <button onclick="changePage(-1)" class="hover:text-red-400 transition"><i class="fas fa-chevron-left"></i></button>
+        <span id="page-info" class="text-[11px] font-black min-w-[80px] text-center uppercase tracking-tighter">Page 0 / 0</span>
+        <button onclick="changePage(1)" class="hover:text-red-400 transition"><i class="fas fa-chevron-right"></i></button>
         
-        <div class="w-px h-4 bg-gray-600"></div>
+        <div class="w-px h-4 bg-gray-700"></div>
         
-        <button onclick="updateZoom(-0.1)" class="hover:text-red-400"><i class="fas fa-search-minus"></i></button>
-        <span id="zoom-level" class="text-xs font-bold min-w-[40px] text-center">100%</span>
-        <button onclick="updateZoom(0.1)" class="hover:text-red-400"><i class="fas fa-search-plus"></i></button>
+        <button onclick="adjustZoom(-0.1)" class="hover:text-red-400 transition"><i class="fas fa-minus-circle"></i></button>
+        <span id="zoom-label" class="text-[11px] font-black min-w-[40px] text-center">100%</span>
+        <button onclick="adjustZoom(0.1)" class="hover:text-red-400 transition"><i class="fas fa-plus-circle"></i></button>
     </div>
 
     <input type="file" id="upload-pdf" accept="application/pdf" class="hidden">
-    <input type="file" id="img-upload" accept="image/*" class="hidden" onchange="addImageToCanvas(this)">
+    <input type="file" id="img-upload" accept="image/*" class="hidden" onchange="processImage(this)">
 
     <script>
         const { PDFDocument } = PDFLib;
@@ -107,10 +132,10 @@
 
         let originalPdfBytes;
         let fabricCanvases = []; 
-        let activePageIndex = 0;
-        let currentZoom = 1.0;
+        let activePage = 0;
+        let scaleZoom = 1.0;
 
-        // --- PDF Loading ---
+        // --- 1. Load PDF & Render ---
         document.getElementById('upload-pdf').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -130,119 +155,115 @@
 
                 const wrapper = document.createElement('div');
                 wrapper.className = 'page-wrapper';
-                wrapper.id = `wrapper-${i-1}`;
+                wrapper.id = `page-wrap-${i-1}`;
                 wrapper.style.width = `${viewport.width}px`;
                 wrapper.style.height = `${viewport.height}px`;
 
-                const bgCanvas = document.createElement('canvas');
-                bgCanvas.width = viewport.width;
-                bgCanvas.height = viewport.height;
+                const bg = document.createElement('canvas');
+                bg.width = viewport.width;
+                bg.height = viewport.height;
                 
-                const fgCanvas = document.createElement('canvas');
-                fgCanvas.id = `fabric-${i}`;
+                const fg = document.createElement('canvas');
+                fg.id = `fg-${i}`;
 
-                wrapper.appendChild(bgCanvas);
-                wrapper.appendChild(fgCanvas);
+                wrapper.appendChild(bg);
+                wrapper.appendChild(fg);
                 container.appendChild(wrapper);
 
-                await page.render({ canvasContext: bgCanvas.getContext('2d'), viewport }).promise;
+                await page.render({ canvasContext: bg.getContext('2d'), viewport }).promise;
 
-                const fCanvas = new fabric.Canvas(`fabric-${i}`, {
+                const fCanvas = new fabric.Canvas(`fg-${i}`, {
                     width: viewport.width,
                     height: viewport.height,
                 });
                 fabricCanvases.push(fCanvas);
 
-                // Create Thumbnail
-                const thumb = document.createElement('div');
-                thumb.className = `thumb-page ${i===1?'active':''}`;
-                thumb.onclick = () => scrollToPage(i-1);
+                // Thumbnail Generation
+                const thumbItem = document.createElement('div');
+                thumbItem.className = `thumb-page ${i===1?'active':''}`;
+                thumbItem.onclick = () => jumpToPage(i-1);
                 
-                const thumbCanvas = document.createElement('canvas');
-                const tCtx = thumbCanvas.getContext('2d');
-                const tViewport = page.getViewport({ scale: 0.15 });
-                thumbCanvas.width = tViewport.width;
-                thumbCanvas.height = tViewport.height;
-                await page.render({ canvasContext: tCtx, viewport: tViewport }).promise;
+                const tCanvas = document.createElement('canvas');
+                const tCtx = tCanvas.getContext('2d');
+                const tView = page.getViewport({ scale: 0.15 });
+                tCanvas.width = tView.width;
+                tCanvas.height = tView.height;
+                await page.render({ canvasContext: tCtx, viewport: tView }).promise;
                 
-                thumb.appendChild(thumbCanvas);
-                const label = document.createElement('div');
-                label.className = 'thumb-label';
-                label.innerText = `PAGE ${i}`;
-                thumb.appendChild(label);
-                thumbList.appendChild(thumb);
+                thumbItem.appendChild(tCanvas);
+                const lbl = document.createElement('div');
+                lbl.className = 'thumb-label';
+                lbl.innerText = i;
+                thumbItem.appendChild(lbl);
+                thumbList.appendChild(thumbItem);
             }
-            updateUI();
+            refreshStatus();
         });
 
-        // --- Zoom & Navigation Logic ---
-        function updateZoom(delta) {
-            currentZoom = Math.min(Math.max(0.5, currentZoom + delta), 2.0);
-            document.getElementById('pages-container').style.transform = `scale(${currentZoom})`;
-            document.getElementById('pages-container').style.transformOrigin = 'top center';
-            document.getElementById('zoom-level').innerText = `${Math.round(currentZoom * 100)}%`;
+        // --- 2. Zoom & Nav Control ---
+        function adjustZoom(val) {
+            scaleZoom = Math.min(Math.max(0.4, scaleZoom + val), 2.0);
+            document.getElementById('pages-container').style.transform = `scale(${scaleZoom})`;
+            document.getElementById('zoom-label').innerText = `${Math.round(scaleZoom * 100)}%`;
+        }
+
+        function jumpToPage(idx) {
+            const target = document.getElementById(`page-wrap-${idx}`);
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            activePage = idx;
+            refreshStatus();
         }
 
         function changePage(dir) {
-            const next = activePageIndex + dir;
-            if (next >= 0 && next < fabricCanvases.length) {
-                scrollToPage(next);
-            }
-        }
-
-        function scrollToPage(idx) {
-            const target = document.getElementById(`wrapper-${idx}`);
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            activePageIndex = idx;
-            updateUI();
+            const n = activePage + dir;
+            if (n >= 0 && n < fabricCanvases.length) jumpToPage(n);
         }
 
         document.getElementById('editor-viewport').addEventListener('scroll', () => {
-            const wrappers = document.querySelectorAll('.page-wrapper');
-            wrappers.forEach((w, idx) => {
-                const rect = w.getBoundingClientRect();
-                if (rect.top < window.innerHeight / 2 && rect.bottom > window.innerHeight / 2) {
-                    activePageIndex = idx;
+            const wraps = document.querySelectorAll('.page-wrapper');
+            wraps.forEach((w, idx) => {
+                const r = w.getBoundingClientRect();
+                if (r.top < window.innerHeight / 2 && r.bottom > window.innerHeight / 2) {
+                    activePage = idx;
+                    document.querySelectorAll('.thumb-page').forEach((t, i) => {
+                        if(i === idx) t.classList.add('active');
+                        else t.classList.remove('active');
+                    });
                 }
             });
-            updateUI();
+            refreshStatus();
         });
 
-        function updateUI() {
-            document.getElementById('page-num-indicator').innerText = `Page ${activePageIndex + 1} / ${fabricCanvases.length}`;
-            const thumbs = document.querySelectorAll('.thumb-page');
-            thumbs.forEach((t, i) => {
-                if(i === activePageIndex) t.classList.add('active');
-                else t.classList.remove('active');
-            });
+        function refreshStatus() {
+            document.getElementById('page-info').innerText = `PAGE ${activePage + 1} / ${fabricCanvases.length || 0}`;
         }
 
-        // --- Tools ---
+        // --- 3. Tools ---
         function addText() {
-            const val = document.getElementById('text-input').value || "RED TEXT";
-            const canvas = fabricCanvases[activePageIndex];
+            const canvas = fabricCanvases[activePage];
             if(!canvas) return;
 
-            const text = new fabric.IText(val, {
+            const fFamily = document.getElementById('font-family').value;
+            const fSize = parseInt(document.getElementById('font-size').value);
+
+            const text = new fabric.IText("Double click to edit", {
                 left: 100,
                 top: 100,
-                fontFamily: 'Arial',
-                fontSize: 28,
-                fill: '#ef4444', // Red
-                fontWeight: 'bold',
-                cornerColor: '#ef4444',
-                transparentCorners: false
+                fontFamily: fFamily,
+                fontSize: fSize,
+                fill: '#ef4444', // Red default
+                fontWeight: 'bold'
             });
             canvas.add(text).setActiveObject(text);
         }
 
-        function addImageToCanvas(input) {
+        function processImage(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    fabric.Image.fromURL(e.target.result, function(img) {
+                reader.onload = (e) => {
+                    fabric.Image.fromURL(e.target.result, (img) => {
                         img.scaleToWidth(200);
-                        fabricCanvases[activePageIndex].add(img).setActiveObject(img);
+                        fabricCanvases[activePage].add(img).setActiveObject(img);
                     });
                 }
                 reader.readAsDataURL(input.files[0]);
@@ -250,16 +271,14 @@
         }
 
         function deleteSelected() {
-            const canvas = fabricCanvases[activePageIndex];
-            if(canvas && canvas.getActiveObject()) {
-                canvas.remove(canvas.getActiveObject());
-            }
+            const c = fabricCanvases[activePage];
+            if(c && c.getActiveObject()) c.remove(c.getActiveObject());
         }
 
-        // --- Working Export PDF ---
+        // --- 4. Export (Fixed Logic) ---
         async function exportFinalPDF() {
-            const btn = document.getElementById('save-btn');
-            btn.innerHTML = `<span class="loader"></span> Saving...`;
+            const btn = document.getElementById('export-btn');
+            btn.innerHTML = `<span class="loader-spin mr-2"></span> SAVING...`;
             btn.disabled = true;
 
             try {
@@ -273,7 +292,6 @@
                     const pdfPage = pages[i];
                     const { width, height } = pdfPage.getSize();
                     
-                    // Multiplier 2 ensures the edits are high resolution
                     const dataURL = canvas.toDataURL({ format: 'png', multiplier: 2 });
                     const imageBytes = await fetch(dataURL).then(res => res.arrayBuffer());
                     const pngImage = await pdfDoc.embedPng(imageBytes);
@@ -290,13 +308,12 @@
                 const blob = new Blob([pdfBytes], { type: "application/pdf" });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = "Edited_By_Achievers.pdf";
+                link.download = "Edited_Document.pdf";
                 link.click();
             } catch (err) {
-                console.error("Save Error:", err);
-                alert("Could not export. Check file size or console.");
+                alert("Error during export. Please check console.");
             } finally {
-                btn.innerHTML = `Export PDF <i class="fas fa-file-export"></i>`;
+                btn.innerHTML = `EXPORT PDF <i class="fas fa-arrow-right ml-2"></i>`;
                 btn.disabled = false;
             }
         }
