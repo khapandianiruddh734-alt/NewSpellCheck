@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Achievers | Full Multi-Page PDF Editor</title>
+    <title>The Achievers | Multi-Page Pro Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -11,69 +11,68 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        .page-container { 
+        body { background-color: #1a1a1b; font-family: 'Inter', sans-serif; }
+        #editor-viewport { height: calc(100vh - 64px); overflow-y: auto; scroll-behavior: smooth; }
+        .page-wrapper { 
             position: relative; 
-            margin-bottom: 30px; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            background: white;
+            margin: 20px auto; 
+            background: white; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.4); 
+            border-radius: 4px;
         }
-        .canvas-container { margin: 0 auto !important; }
-        #editor-viewport { height: calc(100vh - 70px); overflow-y: auto; background: #525659; padding: 40px; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        .canvas-container { position: absolute !important; top: 0; left: 0; }
+        .active-page-border { outline: 4px solid #4f46e5; }
     </style>
 </head>
-<body class="bg-gray-100 flex flex-col h-screen overflow-hidden">
+<body class="flex flex-col h-screen overflow-hidden text-gray-100">
 
-    <nav class="bg-white border-b border-gray-200 p-3 z-50 flex justify-between items-center px-6">
+    <nav class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-6 z-50">
         <div class="flex items-center gap-4">
-            <span class="text-xl font-bold text-indigo-600">The <span class="text-gray-900">Achievers</span></span>
-            <div class="h-6 w-px bg-gray-300"></div>
-            <p class="text-sm text-gray-500 font-medium" id="page-count">No PDF Loaded</p>
+            <span class="text-xl font-bold text-indigo-500">The <span class="text-white">Achievers</span></span>
+            <span id="page-indicator" class="bg-gray-800 px-3 py-1 rounded text-xs text-gray-400">Page: 0/0</span>
         </div>
         <div class="flex gap-3">
-            <button onclick="document.getElementById('upload-pdf').click()" class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg text-sm font-bold border border-indigo-100 hover:bg-indigo-100">
-                <i class="fas fa-file-upload mr-2"></i> Open PDF
+            <button onclick="document.getElementById('upload-pdf').click()" class="text-sm font-semibold hover:text-indigo-400 transition">
+                <i class="fas fa-folder-open mr-2"></i> Load PDF
             </button>
-            <button onclick="exportFinalPDF()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg hover:bg-indigo-700">
-                <i class="fas fa-download mr-2"></i> Save Changes
+            <button onclick="exportFinalPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-bold transition shadow-lg">
+                <i class="fas fa-save mr-2"></i> Download Final PDF
             </button>
         </div>
     </nav>
 
     <div class="flex flex-1 overflow-hidden">
-        <aside class="w-72 bg-white border-r border-gray-200 p-5 flex flex-col gap-6">
-            <div>
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Text Tool</h3>
-                <div class="flex gap-2 mb-2">
-                    <input type="text" id="text-val" placeholder="Type here..." class="flex-1 border p-2 rounded text-sm focus:ring-2 ring-indigo-500 outline-none">
-                </div>
-                <button onclick="addText()" class="w-full bg-gray-900 text-white py-2 rounded text-sm font-bold hover:bg-black transition">
-                    <i class="fas fa-font mr-2"></i> Add Text to Current
+        <aside class="w-80 bg-gray-900 border-r border-gray-800 p-6 flex flex-col gap-8">
+            <section>
+                <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Text Styling</h3>
+                <input type="text" id="text-val" placeholder="Enter text..." class="w-full bg-gray-800 border border-gray-700 p-3 rounded-lg text-sm mb-3 focus:border-indigo-500 outline-none">
+                <button onclick="addText()" class="w-full bg-white text-black py-3 rounded-lg text-sm font-bold hover:bg-gray-200 transition">
+                    <i class="fas fa-plus-circle mr-2"></i> Add to Active Page
                 </button>
-            </div>
+            </section>
 
-            <div>
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Image Tool</h3>
+            <section>
+                <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Media Tool</h3>
                 <input type="file" id="img-upload" accept="image/*" class="hidden" onchange="addImageToCanvas(this)">
-                <button onclick="document.getElementById('img-upload').click()" class="w-full bg-indigo-50 text-indigo-600 border border-indigo-200 py-3 rounded-xl font-bold text-sm">
-                    <i class="fas fa-image mr-2"></i> Upload & Scale Image
+                <button onclick="document.getElementById('img-upload').click()" class="w-full bg-gray-800 border border-gray-700 py-4 rounded-xl font-bold text-sm hover:border-indigo-500 transition">
+                    <i class="fas fa-image mb-2 block text-xl text-indigo-400"></i>
+                    Upload & Resize Image
                 </button>
-                <p class="text-[10px] text-gray-400 mt-2 text-center">Tip: Select image to resize/rotate</p>
-            </div>
+            </section>
 
-            <hr>
-
-            <div class="text-center">
-                <p class="text-xs text-gray-400">Status: <span id="status" class="text-green-500 font-bold">Ready</span></p>
+            <div class="mt-auto p-4 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
+                <p class="text-[11px] text-indigo-300 leading-relaxed">
+                    <i class="fas fa-info-circle mr-1"></i> 
+                    <b>How to edit:</b> Scroll to the page you want to change. The editor will automatically target the page currently in view.
+                </p>
             </div>
         </aside>
 
-        <main id="editor-viewport" class="flex-1">
-            <div id="pages-wrapper" class="flex flex-col items-center">
-                <div id="loader" class="mt-20 text-white text-center">
-                    <i class="fas fa-file-pdf text-5xl opacity-20 mb-4"></i>
-                    <p class="opacity-50">Please upload a PDF to begin editing</p>
+        <main id="editor-viewport" class="flex-1 p-8">
+            <div id="pages-container" class="flex flex-col items-center">
+                <div id="welcome" class="mt-32 text-center text-gray-500">
+                    <i class="fas fa-file-signature text-6xl mb-4 opacity-20"></i>
+                    <p>Upload a PDF to start multi-page editing</p>
                 </div>
             </div>
         </main>
@@ -82,112 +81,130 @@
     <input type="file" id="upload-pdf" accept="application/pdf" class="hidden">
 
     <script>
-        const { PDFDocument, rgb } = PDFLib;
+        const { PDFDocument } = PDFLib;
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         let originalPdfBytes;
-        let fabricCanvases = []; // Array of fabric instances for each page
+        let fabricCanvases = []; 
+        let activePageIndex = 0;
 
-        // 1. Load and Render PDF
+        // --- 1. LOAD & RENDER ALL PAGES ---
         document.getElementById('upload-pdf').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            document.getElementById('loader').innerHTML = '<div class="loader-spinner border-4 border-white/20 border-t-white rounded-full w-10 h-10 animate-spin mx-auto"></div>';
-            
             originalPdfBytes = await file.arrayBuffer();
             const pdfData = new Uint8Array(originalPdfBytes);
-            
             const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
-            const pagesWrapper = document.getElementById('pages-wrapper');
-            pagesWrapper.innerHTML = '';
+            
+            const container = document.getElementById('pages-container');
+            container.innerHTML = '';
             fabricCanvases = [];
-
-            document.getElementById('page-count').innerText = `Total Pages: ${pdf.numPages}`;
 
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const viewport = page.getViewport({ scale: 1.5 });
 
-                // Create Container for each page
-                const container = document.createElement('div');
-                container.className = 'page-container';
-                container.id = `page-container-${i}`;
-                
-                // Create Canvas for Background (PDF content)
+                const wrapper = document.createElement('div');
+                wrapper.className = 'page-wrapper';
+                wrapper.style.width = `${viewport.width}px`;
+                wrapper.style.height = `${viewport.height}px`;
+                wrapper.dataset.index = i - 1;
+
                 const bgCanvas = document.createElement('canvas');
                 bgCanvas.width = viewport.width;
                 bgCanvas.height = viewport.height;
                 
-                // Create Fabric Canvas for Overlay
                 const fgCanvas = document.createElement('canvas');
-                fgCanvas.id = `fabric-page-${i}`;
-                
-                container.appendChild(bgCanvas);
-                container.appendChild(fgCanvas);
-                pagesWrapper.appendChild(container);
+                fgCanvas.id = `page-${i}`;
 
-                // Render PDF background
+                wrapper.appendChild(bgCanvas);
+                wrapper.appendChild(fgCanvas);
+                container.appendChild(wrapper);
+
                 await page.render({ canvasContext: bgCanvas.getContext('2d'), viewport }).promise;
 
-                // Init Fabric
-                const fCanvas = new fabric.Canvas(`fabric-page-${i}`, {
+                const fCanvas = new fabric.Canvas(`page-${i}`, {
                     width: viewport.width,
                     height: viewport.height,
-                    containerClass: 'absolute top-0 left-0'
                 });
-                
                 fabricCanvases.push(fCanvas);
             }
-            document.getElementById('status').innerText = "Loaded";
+            updatePageIndicator();
         });
 
-        // 2. Add Text to active (focused) page or first page
-        function addText() {
-            const val = document.getElementById('text-val').value || "Sample Text";
-            const targetCanvas = fabricCanvases[0]; // Logic: Adds to first page for now
-            if(!targetCanvas) return;
-
-            const text = new fabric.IText(val, {
-                left: 100,
-                top: 100,
-                fontFamily: 'Arial',
-                fontSize: 24,
-                fill: '#ff0000'
+        // --- 2. DETECT ACTIVE PAGE ON SCROLL ---
+        document.getElementById('editor-viewport').addEventListener('scroll', () => {
+            const wrappers = document.querySelectorAll('.page-wrapper');
+            let currentIdx = 0;
+            wrappers.forEach((w, idx) => {
+                const rect = w.getBoundingClientRect();
+                if (rect.top < window.innerHeight / 2 && rect.bottom > window.innerHeight / 2) {
+                    currentIdx = idx;
+                    w.classList.add('active-page-border');
+                } else {
+                    w.classList.remove('active-page-border');
+                }
             });
-            targetCanvas.add(text).setActiveObject(text);
+            activePageIndex = currentIdx;
+            updatePageIndicator();
+        });
+
+        function updatePageIndicator() {
+            const el = document.getElementById('page-indicator');
+            if(fabricCanvases.length > 0) {
+                el.innerText = `Page: ${activePageIndex + 1} / ${fabricCanvases.length}`;
+            }
         }
 
-        // 3. Add Scalable Image
+        // --- 3. EDITING TOOLS ---
+        function addText() {
+            const val = document.getElementById('text-val').value || "New Text";
+            const canvas = fabricCanvases[activePageIndex];
+            if(!canvas) return;
+
+            const text = new fabric.IText(val, {
+                left: 50,
+                top: 50,
+                fontFamily: 'Helvetica',
+                fontSize: 30,
+                fill: '#6366f1',
+                fontWeight: 'bold'
+            });
+            canvas.add(text).setActiveObject(text);
+        }
+
         function addImageToCanvas(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     fabric.Image.fromURL(e.target.result, function(img) {
                         img.scaleToWidth(200);
-                        fabricCanvases[0].add(img).setActiveObject(img);
+                        const canvas = fabricCanvases[activePageIndex];
+                        canvas.add(img).setActiveObject(img);
                     });
                 }
                 reader.readAsDataURL(input.files[0]);
             }
         }
 
-        // 4. Final Export - Merging Fabric Overlays back to PDF-Lib
+        // --- 4. EXPORT FINAL MERGED PDF ---
         async function exportFinalPDF() {
             const pdfDoc = await PDFDocument.load(originalPdfBytes);
             const pages = pdfDoc.getPages();
 
             for (let i = 0; i < fabricCanvases.length; i++) {
                 const canvas = fabricCanvases[i];
+                // Only process if the user actually added something to this page
+                if (canvas.getObjects().length === 0) continue;
+
                 const pdfPage = pages[i];
                 const { width, height } = pdfPage.getSize();
                 
-                // Convert Fabric Canvas to image
                 const dataURL = canvas.toDataURL({ format: 'png', multiplier: 2 });
                 const imageBytes = await fetch(dataURL).then(res => res.arrayBuffer());
                 const pngImage = await pdfDoc.embedPng(imageBytes);
 
-                // Overlay the transparent fabric layer over the page
                 pdfPage.drawImage(pngImage, {
                     x: 0,
                     y: 0,
@@ -200,7 +217,7 @@
             const blob = new Blob([pdfBytes], { type: "application/pdf" });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = "Edited_By_Achievers.pdf";
+            link.download = "Edited_Document.pdf";
             link.click();
         }
     </script>
